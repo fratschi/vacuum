@@ -4,41 +4,68 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/daveshanley/vacuum/model"
 	"github.com/daveshanley/vacuum/motor"
 	"github.com/daveshanley/vacuum/rulesets"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"io/ioutil"
 	"os"
 	"time"
 )
 
 func GetSpectralReportCommand() *cobra.Command {
 
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Use:           "spectral-report",
 		Short:         "Generate a Spectral compatible JSON report",
 		Long: "Generate a JSON report using the same model as Spectral. Default output " +
-			"filename is 'vacuum-spectral-report.json' located in the working directory.",
-		Example: "vacuum report my-awesome-spec.yaml <vacuum-spectral-report.json>",
+			"filename is 'vacuum-spectral-report.json' located in the working directory. " +
+			"Use the -i flag for using stdin instead of reading a file, and -o for stdout, instead of writing to a file.",
+		Example: "vacuum spectral-report my-awesome-spec.yaml <vacuum-spectral-report.json>",
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			switch len(args) {
+			case 0:
+				return []string{"yaml", "yml", "json"}, cobra.ShellCompDirectiveFilterFileExt
+			case 1:
+				return []string{"json"}, cobra.ShellCompDirectiveFilterFileExt
+			default:
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			PrintBanner()
+			stdIn, _ := cmd.Flags().GetBool("stdin")
+			stdOut, _ := cmd.Flags().GetBool("stdout")
+			noStyleFlag, _ := cmd.Flags().GetBool("no-style")
+
+			// disable color and styling, for CI/CD use.
+			// https://github.com/daveshanley/vacuum/issues/234
+			if noStyleFlag {
+				pterm.DisableColor()
+				pterm.DisableStyling()
+			}
+
+			if !stdIn && !stdOut {
+				PrintBanner()
+			}
 
 			// check for file args
-			if len(args) == 0 {
-				errText := "please supply an OpenAPI specification to generate a report"
+			if !stdIn && len(args) == 0 {
+				errText := "please supply an OpenAPI specification to generate a spectral report, or use " +
+					"the -i flag to use stdin"
 				pterm.Error.Println(errText)
 				pterm.Println()
 				return errors.New(errText)
 			}
 
 			timeFlag, _ := cmd.Flags().GetBool("time")
+			noPretty, _ := cmd.Flags().GetBool("no-pretty")
 
 			reportOutput := "vacuum-spectral-report.json"
 
@@ -48,8 +75,20 @@ func GetSpectralReportCommand() *cobra.Command {
 
 			start := time.Now()
 
-			// read file.
-			specBytes, fileError := ioutil.ReadFile(args[0])
+			var specBytes []byte
+			var fileError error
+
+			if stdIn {
+				// read file from stdin
+				inputReader := cmd.InOrStdin()
+				buf := &bytes.Buffer{}
+				_, fileError = buf.ReadFrom(inputReader)
+				specBytes = buf.Bytes()
+
+			} else {
+				// read file from filesystem
+				specBytes, fileError = os.ReadFile(args[0])
+			}
 
 			if fileError != nil {
 				pterm.Error.Printf("Unable to read file '%s': %s\n", args[0], fileError.Error())
@@ -73,7 +112,7 @@ func GetSpectralReportCommand() *cobra.Command {
 			if rulesetFlag != "" {
 
 				customFunctions, _ = LoadCustomFunctions(functionsFlag)
-				rsBytes, rsErr := ioutil.ReadFile(rulesetFlag)
+				rsBytes, rsErr := os.ReadFile(rulesetFlag)
 				if rsErr != nil {
 					pterm.Error.Printf("Unable to read ruleset file '%s': %s\n", rulesetFlag, rsErr.Error())
 					pterm.Println()
@@ -85,12 +124,15 @@ func GetSpectralReportCommand() *cobra.Command {
 				}
 			}
 
-			pterm.Info.Printf("Linting against %d rules: %s\n", len(selectedRS.Rules), selectedRS.DocumentationURI)
+			if !stdIn && !stdOut {
+				pterm.Info.Printf("Linting against %d rules: %s\n", len(selectedRS.Rules), selectedRS.DocumentationURI)
+			}
 
 			ruleset := motor.ApplyRulesToRuleSet(&motor.RuleSetExecution{
 				RuleSet:         selectedRS,
 				Spec:            specBytes,
 				CustomFunctions: customFunctions,
+				SilenceLogs:     true,
 			})
 
 			resultSet := model.NewRuleResultSet(ruleset.Results)
@@ -98,12 +140,28 @@ func GetSpectralReportCommand() *cobra.Command {
 
 			duration := time.Since(start)
 
+			var source string
+			if stdIn {
+				source = "stdin"
+			} else {
+				source = args[0] // todo: convert to full path.
+			}
 			// serialize
-			spectralReport := resultSet.GenerateSpectralReport(args[0]) // todo: convert to full path.
+			spectralReport := resultSet.GenerateSpectralReport(source)
 
-			data, _ := json.MarshalIndent(spectralReport, "", "    ")
+			var data []byte
+			if noPretty {
+				data, _ = json.Marshal(spectralReport)
+			} else {
+				data, _ = json.MarshalIndent(spectralReport, "", "    ")
+			}
 
-			err := ioutil.WriteFile(reportOutput, data, 0664)
+			if stdOut {
+				fmt.Print(string(data))
+				return nil
+			}
+
+			err := os.WriteFile(reportOutput, data, 0664)
 
 			if err != nil {
 				pterm.Error.Printf("Unable to write report file: '%s': %s\n", reportOutput, err.Error())
@@ -120,5 +178,10 @@ func GetSpectralReportCommand() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolP("stdin", "i", false, "Use stdin as input, instead of a file")
+	cmd.Flags().BoolP("stdout", "o", false, "Use stdout as output, instead of a file")
+	cmd.Flags().BoolP("no-pretty", "n", false, "Render JSON with no formatting")
+	cmd.Flags().BoolP("no-style", "q", false, "Disable styling and color output, just plain text (useful for CI/CD)")
+	return cmd
 
 }

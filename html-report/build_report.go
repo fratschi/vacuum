@@ -16,6 +16,7 @@ import (
 	"github.com/pb33f/libopenapi/datamodel"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -48,32 +49,35 @@ type HTMLReport interface {
 const MaxViolations = 100
 
 type ReportData struct {
-	BundledJS      string                    `json:"bundledJS"`
-	HydrateJS      string                    `json:"hydrateJS"`
-	ShoelaceJS     string                    `json:"shoelaceJS"`
-	ReportCSS      string                    `json:"reportCSS"`
-	Statistics     *reports.ReportStatistics `json:"reportStatistics"`
-	TestMode       bool                      `json:"test"`
-	RuleCategories []*model.RuleCategory     `json:"ruleCategories"`
-	RuleResults    *model.RuleResultSet      `json:"ruleResults"`
-	MaxViolations  int                       `json:"maxViolations"`
-	Generated      time.Time                 `json:"generated"`
-	SpecString     []string                  `json:"-"`
+	BundledJS        string                    `json:"bundledJS"`
+	HydrateJS        string                    `json:"hydrateJS"`
+	ShoelaceJS       string                    `json:"shoelaceJS"`
+	ReportCSS        string                    `json:"reportCSS"`
+	Statistics       *reports.ReportStatistics `json:"reportStatistics"`
+	TestMode         bool                      `json:"test"`
+	RuleCategories   []*model.RuleCategory     `json:"ruleCategories"`
+	RuleResults      *model.RuleResultSet      `json:"ruleResults"`
+	MaxViolations    int                       `json:"maxViolations"`
+	Generated        time.Time                 `json:"generated"`
+	DisableTimestamp bool                      `json:"-"`
+	SpecString       []string                  `json:"-"`
 }
 
 func NewHTMLReport(
 	index *index.SpecIndex,
 	info *datamodel.SpecInfo,
 	results *model.RuleResultSet,
-	stats *reports.ReportStatistics) HTMLReport {
-	return &htmlReport{index, info, results, stats}
+	stats *reports.ReportStatistics,
+	disableTimestamp bool) HTMLReport {
+	return &htmlReport{index, info, results, stats, disableTimestamp}
 }
 
 type htmlReport struct {
-	index   *index.SpecIndex
-	info    *datamodel.SpecInfo
-	results *model.RuleResultSet
-	stats   *reports.ReportStatistics
+	index            *index.SpecIndex
+	info             *datamodel.SpecInfo
+	results          *model.RuleResultSet
+	stats            *reports.ReportStatistics
+	disableTimestamp bool
 }
 
 func (html htmlReport) GenerateReport(test bool) []byte {
@@ -83,6 +87,39 @@ func (html htmlReport) GenerateReport(test bool) []byte {
 			b, _ := json.Marshal(data)
 			return string(b)
 		},
+		"sortResults": func(results []*model.RuleFunctionResult) []*model.RuleFunctionResult {
+			sort.Slice(results, func(i, j int) bool {
+				if results[i].StartNode.Line < results[j].StartNode.Line {
+					return true
+				}
+				if results[i].StartNode.Line > results[j].StartNode.Line {
+					return false
+				}
+				if results[i].Message != results[j].Message {
+					// sha256 these paths for consistency
+					lm := results[i].Message
+					rm := results[j].Message
+					return lm < rm
+				}
+				if results[i].Path != results[j].Path {
+					lSegs := strings.Split(results[i].Path, ".")
+					rSegs := strings.Split(results[j].Path, ".")
+					if len(lSegs) == len(rSegs) {
+						for u := range lSegs {
+							if lSegs[u] != rSegs[u] {
+								return lSegs[u] < rSegs[u]
+							}
+						}
+					}
+					return len(lSegs) < len(rSegs)
+				}
+				if results[i].Timestamp != nil && results[j].Timestamp != nil {
+					return results[i].Timestamp.After(*results[j].Timestamp)
+				}
+				return false
+			})
+			return results
+		},
 		"timeGenerated": func(t time.Time) string {
 			return t.Format("02 Jan 2006 15:04:05 MST")
 		},
@@ -91,17 +128,26 @@ func (html htmlReport) GenerateReport(test bool) []byte {
 			limit := MaxViolations
 
 			r = results.GetResultsForCategoryWithLimit(cat, limit)
+			sort.Slice(r.RuleResults, func(i, j int) bool {
+				if r.RuleResults[i].Rule.Id < r.RuleResults[j].Rule.Id {
+					return true
+				}
+				if r.RuleResults[i].Rule.Id > r.RuleResults[j].Rule.Id {
+					return false
+				}
+				return true
+			})
 			return r
 		},
 		"ruleSeverityIcon": func(sev string) string {
 			switch sev {
-			case "error":
+			case model.SeverityError:
 				return "❌"
-			case "warn":
+			case model.SeverityWarn:
 				return "⚠️"
-			case "info":
+			case model.SeverityInfo:
 				return "🔵"
-			case "hint":
+			case model.SeverityHint:
 				return "💠"
 			}
 			return ""
@@ -170,6 +216,9 @@ func (html htmlReport) GenerateReport(test bool) []byte {
 	}
 	if html.info != nil {
 		reportData.Generated = html.info.Generated
+	}
+	if html.disableTimestamp {
+		reportData.DisableTimestamp = true
 	}
 	err = t.ExecuteTemplate(&byteBuf, "report", reportData)
 	if err != nil {

@@ -1,10 +1,12 @@
-![vacuum logo](logo.png)
+![logo](logo.png)
 
 # vacuum - The world's fastest OpenAPI & Swagger linter.
 
 ![Pipeline](https://github.com/daveshanley/vacuum/workflows/vaccum%20pipeline/badge.svg)
-[![codecov](https://codecov.io/gh/daveshanley/vacuum/branch/main/graph/badge.svg?)](https://codecov.io/gh/daveshanley/vacuum)
 [![Go Report Card](https://goreportcard.com/badge/github.com/daveshanley/vacuum)](https://goreportcard.com/report/github.com/daveshanley/vacuum)
+[![discord](https://img.shields.io/discord/923258363540815912)](https://discord.gg/UAcUF78MQN)
+[![Docs](https://img.shields.io/badge/godoc-reference-5fafd7)](https://pkg.go.dev/github.com/daveshanley/vacuum)
+
 
 An **ultra-super-fast**, lightweight OpenAPI linter and quality checking tool, written in golang and inspired by [Spectral](https://github.com/stoplightio/spectral).
 
@@ -34,6 +36,25 @@ yarn global add @quobix/vacuum
 curl -fsSL https://quobix.com/scripts/install_vacuum.sh | sh
 ```
 
+---
+
+
+## Sponsors
+If your company is using `vacuum`, please considering [supporting this project](https://github.com/sponsors/daveshanley),
+like our _very kind_ sponsors:
+
+<p align="center">
+	<a href="//www.speakeasyapi.dev"><img src=".github/sponsors/speakeasy.png" alt="Speakeasy" height="100px"/></a>
+    <br/>
+    <a href="//www.speakeasyapi.dev">Speakeasy</a>
+</p>
+
+---
+
+## Come chat with us
+
+Need help? Have a question? Want to share your work? [Join our discord](https://discord.gg/UAcUF78MQN) and
+come say hi!
 
 ## Documentation
 
@@ -72,7 +93,6 @@ See all the documentation at https://quobix.com/vacuum
   - [No Rules](https://quobix.com/vacuum/rulesets/no-rules/)
   - [Recommended Rules](https://quobix.com/vacuum/rulesets/recommended/)
   - [Custom Rules](https://quobix.com/vacuum/rulesets/custom-rulesets/)
-
 
 ---
 
@@ -134,24 +154,41 @@ go build vacuum.go
 
 ## Running vacuum via Docker
 
-vacuum is available as a container, you can pull the image from
-[Docker Hub](https://hub.docker.com/repository/docker/dshanley/vacuum/general)
+vacuum is available as a container, you can pull the image from [Docker Hub](https://hub.docker.com/r/dshanley/vacuum)
 
 ```
 docker pull dshanley/vacuum
 ```
 
-or you can pull it from [Github packages](https://github.com/daveshanley/vacuum/pkgs/container/vacuum).
+To run, mount the current working dir to the container and use a relative path to your spec, like so
 
 ```
-docker pull ghcr.io/daveshanley/vacuum:latest
+docker run --rm -v $PWD:/work:ro dshanley/vacuum lint <your-openapi-spec.yaml>
 ```
 
-To run, just add `docker dshanley/vacuum` as your command, like so
+Alternatively, you can pull it from
+[Github packages](https://github.com/daveshanley/vacuum/pkgs/container/vacuum).
+To do that, replace `dshanley/vacuum` with `ghcr.io/daveshanley/vacuum` in the above commands.
 
+## Using vacuum with pre-commit
+
+Vacuum can be used with [pre-commit](https://pre-commit.com).
+
+To do that, add to your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/daveshanley/vacuum
+    rev: # a tag or a commit hash from this repo, see https://github.com/daveshanley/vacuum/releases
+    hooks:
+      - id: vacuum
 ```
-docker dshanley/vacuum lint <your-openapi-spec.yaml>
-```
+
+See the [hook definition](./.pre-commit-hooks.yaml) here for details on what options the hook uses and what files it checks by default.
+
+If no filenames or more than one filename in your repository matches the default `files` pattern in the hook definition,
+the pattern needs to be overridden in your config so that it matches exactly one filename to lint at a time.
+To lint multiple files, specify the hook multiple times with the appropriate overrides.
 
 ## Build an interactive HTML report 
 

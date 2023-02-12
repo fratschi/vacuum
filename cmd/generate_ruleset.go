@@ -11,7 +11,7 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
+	"os"
 )
 
 func GetGenerateRulesetCommand() *cobra.Command {
@@ -23,6 +23,16 @@ func GetGenerateRulesetCommand() *cobra.Command {
 		Short:         "Generate a vacuum RuleSet",
 		Long:          "Generate a YAML ruleset containing 'all', or 'recommended' rules",
 		Example:       "vacuum generate-ruleset recommended | all <ruleset-output-name>",
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			switch len(args) {
+			case 0:
+				return []string{"recommended", "all"}, cobra.ShellCompDirectiveNoFileComp
+			case 1:
+				return []string{"yaml", "yml"}, cobra.ShellCompDirectiveFilterFileExt
+			default:
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			PrintBanner()
@@ -80,7 +90,7 @@ func GetGenerateRulesetCommand() *cobra.Command {
 
 			reportOutputName := fmt.Sprintf("%s-%s%s", reportOutput, args[0], extension)
 
-			err = ioutil.WriteFile(reportOutputName, yamlBytes, 0664)
+			err = os.WriteFile(reportOutputName, yamlBytes, 0664)
 
 			if err != nil {
 				pterm.Error.Printf("Unable to write RuleSet file: '%s': %s\n", reportOutputName, err.Error())

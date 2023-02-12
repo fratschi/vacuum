@@ -2,6 +2,7 @@ package openapi
 
 import (
 	"github.com/daveshanley/vacuum/model"
+	"github.com/pb33f/libopenapi/datamodel"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
 	"github.com/stretchr/testify/assert"
@@ -56,6 +57,77 @@ components:
 	rule := buildOpenApiTestRuleAction(path, "unused_component", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
 	ctx.Index = index.NewSpecIndex(&rootNode)
+
+	def := UnusedComponent{}
+	res := def.RunRule(nodes, ctx)
+
+	assert.Len(t, res, 0)
+}
+
+func TestUnusedComponent_RunRule_SuccessSwaggerSecurity(t *testing.T) {
+
+	yml := `swagger: 2.0
+securityDefinitions:
+  basicAuth:
+    type: basic
+  sessionAuth:
+    type: apiKey
+    in: header
+    name: X-API-Key
+paths:
+  "/store/inventory":
+    get:
+      security:
+        - basicAuth: []
+  "/store/inventory/doSomething":
+    get:
+      security:
+        - sessionAuth: []`
+
+	path := "$"
+
+	var rootNode yaml.Node
+	mErr := yaml.Unmarshal([]byte(yml), &rootNode)
+	assert.NoError(t, mErr)
+
+	nodes, _ := utils.FindNodes([]byte(yml), path)
+
+	rule := buildOpenApiTestRuleAction(path, "unused_component", "", nil)
+	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
+	ctx.Index = index.NewSpecIndex(&rootNode)
+	info, _ := datamodel.ExtractSpecInfo([]byte(yml))
+	ctx.SpecInfo = info
+
+	def := UnusedComponent{}
+	res := def.RunRule(nodes, ctx)
+
+	assert.Len(t, res, 0)
+}
+
+func TestUnusedComponent_RunRule_SuccessOpenAPISecurity(t *testing.T) {
+
+	yml := `openapi: 3.0.1
+info:
+  description: A test spec with a security def that is not a ref!
+security:
+  - SomeSecurity: []
+components:
+  securitySchemes:
+    SomeSecurity:
+      description: A secure way to do things and stuff.`
+	path := "$"
+
+	var rootNode yaml.Node
+	mErr := yaml.Unmarshal([]byte(yml), &rootNode)
+	assert.NoError(t, mErr)
+
+	nodes, _ := utils.FindNodes([]byte(yml), path)
+
+	rule := buildOpenApiTestRuleAction(path, "unused_component", "", nil)
+	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
+	ctx.Index = index.NewSpecIndex(&rootNode)
+	info, _ := datamodel.ExtractSpecInfo([]byte(yml))
+	ctx.SpecInfo = info
 
 	def := UnusedComponent{}
 	res := def.RunRule(nodes, ctx)
@@ -162,4 +234,61 @@ components:
 	res := def.RunRule(nodes, ctx)
 
 	assert.Len(t, res, 4)
+}
+
+func TestUnusedComponent_RunRule_Success_PolymorphicCheck(t *testing.T) {
+
+	yml := `paths:
+  /naughty/{puppy}:
+    get:
+      responses:
+      "200":
+        description: The naughty pup
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/Puppy'
+      "404":
+        description: The naughty kitty
+        content:
+          application/json:
+            schema:
+              anyOf:
+                - $ref: '#/components/schemas/Kitty'
+      "500":
+        description: The naughty bunny
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Bunny'
+components:
+  schemas:
+    Puppy:
+      type: string
+      description: pup
+    Kitty:
+      type: string
+      description: kitty
+    Bunny:
+      type: string
+      description: bunny`
+
+	path := "$"
+
+	var rootNode yaml.Node
+	mErr := yaml.Unmarshal([]byte(yml), &rootNode)
+	assert.NoError(t, mErr)
+
+	nodes, _ := utils.FindNodes([]byte(yml), path)
+
+	rule := buildOpenApiTestRuleAction(path, "unused_component", "", nil)
+	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
+	ctx.Index = index.NewSpecIndex(&rootNode)
+
+	def := UnusedComponent{}
+	res := def.RunRule(nodes, ctx)
+
+	assert.Len(t, res, 0)
 }

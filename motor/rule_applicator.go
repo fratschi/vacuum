@@ -12,6 +12,7 @@ import (
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/resolver"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pterm/pterm"
 	"gopkg.in/yaml.v3"
 	"sync"
 )
@@ -26,6 +27,8 @@ type ruleContext struct {
 	index            *index.SpecIndex
 	specInfo         *datamodel.SpecInfo
 	customFunctions  map[string]model.RuleFunction
+	panicFunc        func(p any)
+	silenceLogs      bool
 }
 
 // RuleSetExecution is an instruction set for executing a ruleset. It's a convenience structure to allow the signature
@@ -33,7 +36,10 @@ type ruleContext struct {
 type RuleSetExecution struct {
 	RuleSet         *rulesets.RuleSet             // The RuleSet in which to apply
 	Spec            []byte                        // The raw bytes of the OpenAPI specification.
+	SpecInfo        *datamodel.SpecInfo           // Pre-parsed spec-info.
 	CustomFunctions map[string]model.RuleFunction // custom functions loaded from plugin.
+	PanicFunction   func(p any)                   // In case of emergency, do this thing here.
+	SilenceLogs     bool                          // Prevent any warnings about rules/rule-sets being printed.
 }
 
 // RuleSetExecutionResult returns the results of running the ruleset against the supplied spec.
@@ -64,22 +70,31 @@ func ApplyRulesToRuleSet(execution *RuleSetExecution) *RuleSetExecutionResult {
 		ruleWaitGroup.Add(len(execution.RuleSet.Rules))
 	}
 
-	var specResolved yaml.Node
-	var specUnresolved yaml.Node
+	var specResolved *yaml.Node
+	var specUnresolved *yaml.Node
 
-	// extract spec info, make this available to rule context.
-	specInfo, err := datamodel.ExtractSpecInfo(execution.Spec)
-	if err != nil || specInfo == nil {
-		if specInfo == nil || specInfo.RootNode == nil {
-			return &RuleSetExecutionResult{Errors: []error{err}}
+	var specInfo, specInfoUnresolved *datamodel.SpecInfo
+	var err error
+	if execution.SpecInfo == nil {
+		// extract spec info, make this available to rule context.
+		specInfo, err = datamodel.ExtractSpecInfo(execution.Spec)
+		if err != nil || specInfo == nil {
+			if specInfo == nil || specInfo.RootNode == nil {
+				return &RuleSetExecutionResult{Errors: []error{err}}
+			}
 		}
+		specInfoUnresolved, _ = datamodel.ExtractSpecInfo(execution.Spec)
+	} else {
+		specInfo = execution.SpecInfo
+		specInfoUnresolved = execution.SpecInfo
 	}
 
-	specUnresolved = *specInfo.RootNode
-	specResolved = specUnresolved
+	specUnresolved = specInfoUnresolved.RootNode
+	specResolved = specInfo.RootNode
 
 	// create resolved and un-resolved indexes.
-	indexResolved := index.NewSpecIndex(&specResolved)
+	indexResolved := index.NewSpecIndex(specResolved)
+	indexUnresolved := index.NewSpecIndex(specUnresolved)
 
 	// create a resolver
 	resolverInstance := resolver.NewResolver(indexResolved)
@@ -100,7 +115,7 @@ func ApplyRulesToRuleSet(execution *RuleSetExecution) *RuleSetExecutionResult {
 		Recommended:  true,
 		RuleCategory: model.RuleCategories[model.CategorySchemas],
 		Type:         "validation",
-		Severity:     "error",
+		Severity:     model.SeverityError,
 		Then: model.RuleAction{
 			Function: "blank",
 		},
@@ -113,7 +128,7 @@ func ApplyRulesToRuleSet(execution *RuleSetExecution) *RuleSetExecutionResult {
 			Rule:      circularRule,
 			StartNode: er.Node,
 			EndNode:   er.Node,
-			Message:   er.Error.Error(),
+			Message:   er.Error(),
 			Path:      er.Path,
 		}
 		ruleResults = append(ruleResults, res)
@@ -124,9 +139,11 @@ func ApplyRulesToRuleSet(execution *RuleSetExecution) *RuleSetExecutionResult {
 
 	if execution.RuleSet != nil {
 		for _, rule := range execution.RuleSet.Rules {
-			ruleSpec := &specResolved
+			ruleSpec := specResolved
+			ruleIndex := indexResolved
 			if !rule.Resolved {
-				ruleSpec = &specUnresolved
+				ruleSpec = specUnresolved
+				ruleIndex = indexUnresolved
 			}
 
 			// this list of things is most likely going to grow a bit, so we use a nice clean message design.
@@ -138,8 +155,12 @@ func ApplyRulesToRuleSet(execution *RuleSetExecution) *RuleSetExecutionResult {
 				wg:               &ruleWaitGroup,
 				errors:           &errors,
 				specInfo:         specInfo,
-				index:            indexResolved,
+				index:            ruleIndex,
 				customFunctions:  execution.CustomFunctions,
+				silenceLogs:      execution.SilenceLogs,
+			}
+			if execution.PanicFunction != nil {
+				ctx.panicFunc = execution.PanicFunction
 			}
 			go runRule(ctx)
 		}
@@ -203,7 +224,7 @@ func ApplyRules(ruleSet *rulesets.RuleSet, spec []byte) ([]model.RuleFunctionRes
 		Recommended:  true,
 		RuleCategory: model.RuleCategories[model.CategorySchemas],
 		Type:         "validation",
-		Severity:     "error",
+		Severity:     model.SeverityError,
 		Then: model.RuleAction{
 			Function: "blank",
 		},
@@ -216,7 +237,7 @@ func ApplyRules(ruleSet *rulesets.RuleSet, spec []byte) ([]model.RuleFunctionRes
 			Rule:      circularRule,
 			StartNode: er.Node,
 			EndNode:   er.Node,
-			Message:   er.Error.Error(),
+			Message:   er.Error(),
 			Path:      er.Path,
 		}
 		ruleResults = append(ruleResults, res)
@@ -254,7 +275,15 @@ func ApplyRules(ruleSet *rulesets.RuleSet, spec []byte) ([]model.RuleFunctionRes
 
 func runRule(ctx ruleContext) {
 
+	if ctx.panicFunc != nil {
+		defer func() {
+			if r := recover(); r != nil {
+				ctx.panicFunc(r)
+			}
+		}()
+	}
 	defer ctx.wg.Done()
+
 	var givenPaths []string
 	if x, ok := ctx.rule.Given.(string); ok {
 		givenPaths = append(givenPaths, x)
@@ -338,6 +367,13 @@ func buildResults(ctx ruleContext, ruleAction model.RuleAction, nodes []*yaml.No
 			Given:      ctx.rule.Given,
 			Index:      ctx.index,
 			SpecInfo:   ctx.specInfo,
+		}
+
+		if ctx.specInfo.SpecFormat == "" && ctx.specInfo.Version == "" {
+			if !ctx.silenceLogs {
+				pterm.Warning.Printf("Specification version not detected, cannot apply rule `%s`\n", ctx.rule.Id)
+			}
+			return ctx.ruleResults
 		}
 
 		// validate the rule is configured correctly before running it.

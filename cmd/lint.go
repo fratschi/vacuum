@@ -11,7 +11,6 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -26,6 +25,12 @@ func GetLintCommand() *cobra.Command {
 		Use:           "lint",
 		Short:         "Lint an OpenAPI specification",
 		Long:          `Lint an OpenAPI specification, the output of the response will be in the terminal`,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) != 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			return []string{"yaml", "yml", "json"}, cobra.ShellCompDirectiveFilterFileExt
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			detailsFlag, _ := cmd.Flags().GetBool("details")
@@ -37,6 +42,14 @@ func GetLintCommand() *cobra.Command {
 			silent, _ := cmd.Flags().GetBool("silent")
 			functionsFlag, _ := cmd.Flags().GetString("functions")
 			failSeverityFlag, _ := cmd.Flags().GetString("fail-severity")
+			noStyleFlag, _ := cmd.Flags().GetBool("no-style")
+
+			// disable color and styling, for CI/CD use.
+			// https://github.com/daveshanley/vacuum/issues/234
+			if noStyleFlag {
+				pterm.DisableColor()
+				pterm.DisableStyling()
+			}
 
 			if !silent {
 				PrintBanner()
@@ -44,13 +57,13 @@ func GetLintCommand() *cobra.Command {
 
 			// check for file args
 			if len(args) != 1 {
-				pterm.Error.Println("Please supply OpenAPI specification(s) to lint")
+				pterm.Error.Println("Please supply an OpenAPI specification to lint")
 				pterm.Println()
-				return fmt.Errorf("no files supplied")
+				return fmt.Errorf("no file supplied")
 			}
 
 			// read file.
-			specBytes, ferr := ioutil.ReadFile(args[0])
+			specBytes, ferr := os.ReadFile(args[0])
 
 			// split up file into an array with lines.
 			specStringData := strings.Split(string(specBytes), "\n")
@@ -74,7 +87,7 @@ func GetLintCommand() *cobra.Command {
 			// and see if it's valid. If so - let's go!
 			if rulesetFlag != "" {
 
-				rsBytes, rsErr := ioutil.ReadFile(rulesetFlag)
+				rsBytes, rsErr := os.ReadFile(rulesetFlag)
 				if rsErr != nil {
 					pterm.Error.Printf("Unable to read ruleset file '%s': %s\n", rulesetFlag, rsErr.Error())
 					pterm.Println()
@@ -181,7 +194,31 @@ func GetLintCommand() *cobra.Command {
 	cmd.Flags().BoolP("errors", "e", false, "Show errors only")
 	cmd.Flags().StringP("category", "c", "", "Show a single category of results")
 	cmd.Flags().BoolP("silent", "x", false, "Show nothing except the result.")
-	cmd.Flags().StringP("fail-severity", "n", "error", "Results of this level or above will trigger a failure exit code")
+	cmd.Flags().BoolP("no-style", "q", false, "Disable styling and color output, just plain text (useful for CI/CD)")
+	cmd.Flags().StringP("fail-severity", "n", model.SeverityError, "Results of this level or above will trigger a failure exit code")
+
+	regErr := cmd.RegisterFlagCompletionFunc("category", cobra.FixedCompletions([]string{
+		model.CategoryAll,
+		model.CategoryDescriptions,
+		model.CategoryExamples,
+		model.CategoryInfo,
+		model.CategoryOperations,
+		model.CategorySchemas,
+		model.CategorySecurity,
+		model.CategoryTags,
+		model.CategoryValidation,
+	}, cobra.ShellCompDirectiveNoFileComp))
+	if regErr != nil {
+		panic(regErr)
+	}
+	regErr = cmd.RegisterFlagCompletionFunc("fail-severity", cobra.FixedCompletions([]string{
+		model.SeverityInfo,
+		model.SeverityWarn,
+		model.SeverityError,
+	}, cobra.ShellCompDirectiveNoFileComp))
+	if regErr != nil {
+		panic(regErr)
+	}
 
 	return cmd
 }
@@ -229,15 +266,15 @@ func processResults(results []*model.RuleFunctionResult, specData []string, snip
 		}
 
 		switch sev {
-		case "error":
+		case model.SeverityError:
 			sev = pterm.LightRed(sev)
-		case "warn":
+		case model.SeverityWarn:
 			sev = pterm.LightYellow("warning")
-		case "info":
+		case model.SeverityInfo:
 			sev = pterm.LightBlue(sev)
 		}
 
-		if errors && r.Rule.Severity != "error" {
+		if errors && r.Rule.Severity != model.SeverityError {
 			continue // only show errors
 		}
 

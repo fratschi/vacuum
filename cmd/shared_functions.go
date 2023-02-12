@@ -42,7 +42,9 @@ func PrintBanner() {
 	pterm.Println()
 	_ = pterm.DefaultBigText.WithLetters(
 		putils.LettersFromStringWithRGB("vacuum", pterm.NewRGB(153, 51, 255))).Render()
-	pterm.Printf("version: %s | compiled: %s\n\n", Version, Date)
+	pterm.Printf("version: %s | compiled: %s\n", pterm.LightGreen(Version), pterm.LightGreen(Date))
+	pterm.Println(pterm.Cyan("🔗 https://quobix.com/vacuum | https://github.com/daveshanley/vacuum"))
+	pterm.Println()
 	pterm.Println()
 }
 
@@ -63,14 +65,14 @@ func LoadCustomFunctions(functionsFlag string) (map[string]model.RuleFunction, e
 }
 
 func CheckFailureSeverity(failSeverityFlag string, errors int, warnings int, informs int) error {
-	if failSeverityFlag != "error" {
+	if failSeverityFlag != model.SeverityError {
 		switch failSeverityFlag {
-		case "warn":
+		case model.SeverityWarn:
 			if warnings > 0 {
 				return fmt.Errorf("failed linting, with %d errors and %d warnings", errors, warnings)
 			}
 			return nil
-		case "info":
+		case model.SeverityInfo:
 			if informs > 0 {
 				return fmt.Errorf("failed linting, with %d errors, %d warnings and %d informs",
 					errors, warnings, informs)

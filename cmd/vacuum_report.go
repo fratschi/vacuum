@@ -16,7 +16,6 @@ import (
 	vacuum_report "github.com/daveshanley/vacuum/vacuum-report"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"io/ioutil"
 	"os"
 	"time"
 )
@@ -27,17 +26,37 @@ func GetVacuumReportCommand() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Use:           "report",
-		Short:         "Generate a vacuum sealed, replayable report",
+		Short:         "Generate a vacuum sealed, re-playable report",
 		Long: "Generate a full report of a linting run. This can be used as a result set, or can be used to replay a linting run. " +
-			"the default filename is 'vacuum-report-MM-DD-YY-HH_MM_SS.json' located in the working directory.",
+			"the default filename is 'vacuum-report-MM-DD-YY-HH_MM_SS.json' located in the working directory. " +
+			"Use the -i flag for using stdin instead of reading a file, and -o for stdout, instead of writing to a file.",
 		Example: "vacuum report <my-awesome-spec.yaml> <report-prefix>",
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return []string{"yaml", "yml", "json"}, cobra.ShellCompDirectiveFilterFileExt
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			PrintBanner()
+			stdIn, _ := cmd.Flags().GetBool("stdin")
+			stdOut, _ := cmd.Flags().GetBool("stdout")
+			noStyleFlag, _ := cmd.Flags().GetBool("no-style")
+
+			// disable color and styling, for CI/CD use.
+			// https://github.com/daveshanley/vacuum/issues/234
+			if noStyleFlag {
+				pterm.DisableColor()
+				pterm.DisableStyling()
+			}
+
+			if !stdIn && !stdOut {
+				PrintBanner()
+			}
 
 			// check for file args
-			if len(args) == 0 {
-				errText := "please supply an OpenAPI specification to generate a report"
+			if !stdIn && len(args) == 0 {
+				errText := "please supply an OpenAPI specification to generate a report, or use the -i flag to use stdin"
 				pterm.Error.Println(errText)
 				pterm.Println()
 				return errors.New(errText)
@@ -58,8 +77,20 @@ func GetVacuumReportCommand() *cobra.Command {
 
 			start := time.Now()
 
-			// read file.
-			specBytes, fileError := ioutil.ReadFile(args[0])
+			var specBytes []byte
+			var fileError error
+
+			if stdIn {
+				// read file from stdin
+				inputReader := cmd.InOrStdin()
+				buf := &bytes.Buffer{}
+				_, fileError = buf.ReadFrom(inputReader)
+				specBytes = buf.Bytes()
+
+			} else {
+				// read file from filesystem
+				specBytes, fileError = os.ReadFile(args[0])
+			}
 
 			if fileError != nil {
 				pterm.Error.Printf("Unable to read file '%s': %s\n", args[0], fileError.Error())
@@ -82,7 +113,7 @@ func GetVacuumReportCommand() *cobra.Command {
 
 				customFunctions, _ = LoadCustomFunctions(functionsFlag)
 
-				rsBytes, rsErr := ioutil.ReadFile(rulesetFlag)
+				rsBytes, rsErr := os.ReadFile(rulesetFlag)
 				if rsErr != nil {
 					pterm.Error.Printf("Unable to read ruleset file '%s': %s\n", rulesetFlag, rsErr.Error())
 					pterm.Println()
@@ -94,12 +125,15 @@ func GetVacuumReportCommand() *cobra.Command {
 				}
 			}
 
-			pterm.Info.Printf("Linting against %d rules: %s\n", len(selectedRS.Rules), selectedRS.DocumentationURI)
+			if !stdIn && !stdOut {
+				pterm.Info.Printf("Linting against %d rules: %s\n", len(selectedRS.Rules), selectedRS.DocumentationURI)
+			}
 
 			ruleset := motor.ApplyRulesToRuleSet(&motor.RuleSetExecution{
 				RuleSet:         selectedRS,
 				Spec:            specBytes,
 				CustomFunctions: customFunctions,
+				SilenceLogs:     true,
 			})
 
 			resultSet := model.NewRuleResultSet(ruleset.Results)
@@ -132,6 +166,11 @@ func GetVacuumReportCommand() *cobra.Command {
 
 			reportData := data
 
+			if stdOut {
+				fmt.Print(string(reportData))
+				return nil
+			}
+
 			if compress {
 
 				var b bytes.Buffer
@@ -151,8 +190,7 @@ func GetVacuumReportCommand() *cobra.Command {
 			reportOutputName := fmt.Sprintf("%s-%s%s",
 				reportOutput, vr.Generated.Format("01-02-06-15_04_05"), extension)
 
-			err = ioutil.WriteFile(reportOutputName, reportData, 0664)
-
+			err = os.WriteFile(reportOutputName, reportData, 0664)
 			if err != nil {
 				pterm.Error.Printf("Unable to write report file: '%s': %s\n", reportOutputName, err.Error())
 				pterm.Println()
@@ -168,7 +206,10 @@ func GetVacuumReportCommand() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolP("stdin", "i", false, "Use stdin as input, instead of a file")
+	cmd.Flags().BoolP("stdout", "o", false, "Use stdout as output, instead of a file")
 	cmd.Flags().BoolP("compress", "c", false, "Compress results using gzip")
 	cmd.Flags().BoolP("no-pretty", "n", false, "Render JSON with no formatting")
+	cmd.Flags().BoolP("no-style", "q", false, "Disable styling and color output, just plain text (useful for CI/CD)")
 	return cmd
 }

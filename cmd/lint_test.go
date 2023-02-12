@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/daveshanley/vacuum/model"
 	"io"
-	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -15,7 +17,7 @@ func TestGetLintCommand(t *testing.T) {
 	cmd.SetArgs([]string{"../model/test_files/burgershop.openapi.yaml"})
 	exErr := cmd.Execute()
 	assert.NoError(t, exErr)
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 	assert.NoError(t, err)
 	assert.NotNil(t, outBytes)
 	// assert.Error(t, cmdErr) // need return code to be 1 first, disabling for now.
@@ -32,7 +34,7 @@ func TestGetLintCommand_Ruleset(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	_ = cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	// assert.NoError(t, cmdErr) // need return code to be 1 first, disabling for now.
 	assert.NoError(t, err)
@@ -51,7 +53,7 @@ func TestGetLintCommand_RulesetMissing(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 	assert.Error(t, cmdErr)
 	assert.NoError(t, err)
 	assert.NotNil(t, outBytes)
@@ -68,7 +70,7 @@ func TestGetLintCommand_NoRules(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -86,7 +88,7 @@ func TestGetLintCommand_NoSpec(t *testing.T) {
 		"../rulesets/examples/norules-ruleset.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.Error(t, cmdErr)
 	assert.NoError(t, err)
@@ -105,7 +107,7 @@ func TestGetLintCommand_BadSpec(t *testing.T) {
 		"../model/test_files/not-here-not-there.json",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.Error(t, cmdErr)
 	assert.NoError(t, err)
@@ -124,7 +126,7 @@ func TestGetLintCommand_BadRuleset(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.Error(t, cmdErr)
 	assert.NoError(t, err)
@@ -133,7 +135,7 @@ func TestGetLintCommand_BadRuleset(t *testing.T) {
 
 func TestGetLintCommand_InvalidRuleset(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "length-test-description": {
@@ -141,7 +143,7 @@ func TestGetLintCommand_InvalidRuleset(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "I AM NOT A PATH <-- ",
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "length",
 		"field": "required",
@@ -151,9 +153,9 @@ func TestGetLintCommand_InvalidRuleset(t *testing.T) {
       }
     }
   }
-}`
+}`, model.SeverityError)
 
-	tmp, _ := ioutil.TempFile("", "")
+	tmp, _ := os.CreateTemp("", "")
 	_, _ = io.WriteString(tmp, json)
 
 	cmd := GetLintCommand()
@@ -167,7 +169,7 @@ func TestGetLintCommand_InvalidRuleset(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.Error(t, cmdErr)
 	assert.NoError(t, err)
@@ -185,7 +187,7 @@ func TestGetLintCommand_SpecificRules(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -207,7 +209,7 @@ func TestGetLintCommand_Category_Examples(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -229,7 +231,7 @@ func TestGetLintCommand_Category_Descriptions(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -251,7 +253,7 @@ func TestGetLintCommand_Category_Info(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -273,7 +275,7 @@ func TestGetLintCommand_Category_Schemas(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -295,7 +297,7 @@ func TestGetLintCommand_Category_Security(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -317,7 +319,7 @@ func TestGetLintCommand_Category_Validation(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -339,7 +341,7 @@ func TestGetLintCommand_Category_Operations(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -361,7 +363,7 @@ func TestGetLintCommand_Category_Tags(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -383,7 +385,7 @@ func TestGetLintCommand_Category_Default(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -403,7 +405,7 @@ func TestGetLintCommand_Details_NoCat(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -422,7 +424,7 @@ func TestGetLintCommand_Details_NoCat_NotSilent(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -443,7 +445,7 @@ func TestGetLintCommand_Details_NoCat_Snippets(t *testing.T) {
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -456,7 +458,7 @@ func TestGetLintCommand_Details_ErrorOverride(t *testing.T) {
 rules:
   oas3-valid-schema-example: error`
 
-	tmp, _ := ioutil.TempFile("", "")
+	tmp, _ := os.CreateTemp("", "")
 	_, _ = io.WriteString(tmp, yaml)
 
 	cmd := GetLintCommand()
@@ -471,7 +473,7 @@ rules:
 		"../model/test_files/burgershop.openapi.yaml",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)
@@ -484,7 +486,7 @@ func TestGetLintCommand_Details_Snippets(t *testing.T) {
 rules:
   oas3-valid-schema-example: true`
 
-	tmp, _ := ioutil.TempFile("", "")
+	tmp, _ := os.CreateTemp("", "")
 	_, _ = io.WriteString(tmp, yaml)
 
 	cmd := GetLintCommand()
@@ -499,7 +501,7 @@ rules:
 		"../model/test_files/petstorev3.json",
 	})
 	cmdErr := cmd.Execute()
-	outBytes, err := ioutil.ReadAll(b)
+	outBytes, err := io.ReadAll(b)
 
 	assert.NoError(t, cmdErr)
 	assert.NoError(t, err)

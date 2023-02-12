@@ -1,5 +1,6 @@
-name: Tag
+name: Tag Release
 
+# workflow_dispatch:
 on:
   push:
     branches:

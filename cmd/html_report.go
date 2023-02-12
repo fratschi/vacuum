@@ -15,7 +15,6 @@ import (
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"io/ioutil"
 	"os"
 	"time"
 )
@@ -23,7 +22,7 @@ import (
 // GetHTMLReportCommand returns a cobra command for generating an HTML Report.
 func GetHTMLReportCommand() *cobra.Command {
 
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		SilenceUsage:  true,
 		SilenceErrors: false,
 		Use:           "html-report",
@@ -31,7 +30,26 @@ func GetHTMLReportCommand() *cobra.Command {
 		Long: "Generate an interactive and useful HTML report. Default output " +
 			"filename is 'report.html' located in the working directory.",
 		Example: "vacuum html-report <my-awesome-spec.yaml> <report.html>",
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			switch len(args) {
+			case 0:
+				return []string{"yaml", "yml", "json"}, cobra.ShellCompDirectiveFilterFileExt
+			case 1:
+				return []string{"html", "htm"}, cobra.ShellCompDirectiveFilterFileExt
+			default:
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+
+			noStyleFlag, _ := cmd.Flags().GetBool("no-style")
+
+			// disable color and styling, for CI/CD use.
+			// https://github.com/daveshanley/vacuum/issues/234
+			if noStyleFlag {
+				pterm.DisableColor()
+				pterm.DisableStyling()
+			}
 
 			PrintBanner()
 
@@ -44,6 +62,7 @@ func GetHTMLReportCommand() *cobra.Command {
 			}
 
 			timeFlag, _ := cmd.Flags().GetBool("time")
+			disableTimestamp, _ := cmd.Flags().GetBool("disableTimestamp")
 
 			reportOutput := "report.html"
 
@@ -94,12 +113,12 @@ func GetHTMLReportCommand() *cobra.Command {
 			duration := time.Since(start)
 
 			// generate html report
-			report := html_report.NewHTMLReport(specIndex, specInfo, resultSet, stats)
+			report := html_report.NewHTMLReport(specIndex, specInfo, resultSet, stats, disableTimestamp)
 
 			generatedBytes := report.GenerateReport(false)
 			//generatedBytes := report.GenerateReport(true) // test mode
 
-			err = ioutil.WriteFile(reportOutput, generatedBytes, 0664)
+			err = os.WriteFile(reportOutput, generatedBytes, 0664)
 
 			if err != nil {
 				pterm.Error.Printf("Unable to write HTML report file: '%s': %s\n", reportOutput, err.Error())
@@ -116,4 +135,8 @@ func GetHTMLReportCommand() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolP("disableTimestamp", "d", false, "Disable timestamp in report")
+	cmd.Flags().BoolP("no-style", "q", false, "Disable styling and color output, just plain text (useful for CI/CD)")
+
+	return cmd
 }

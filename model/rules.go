@@ -8,13 +8,14 @@ import (
 	"github.com/pb33f/libopenapi/index"
 	"gopkg.in/yaml.v3"
 	"regexp"
+	"time"
 )
 
 const (
-	severityError        = "error"
-	severityWarn         = "warn"
-	severityInfo         = "info"
-	severityHint         = "hint"
+	SeverityError        = "error"
+	SeverityWarn         = "warn"
+	SeverityInfo         = "info"
+	SeverityHint         = "hint"
 	CategoryExamples     = "examples"
 	CategoryOperations   = "operations"
 	CategoryInfo         = "information"
@@ -52,6 +53,7 @@ type RuleFunctionResult struct {
 	Rule         *Rule         `json:"-" yaml:"-"`                       // The rule used
 	StartNode    *yaml.Node    `json:"-" yaml:"-"`                       // Start of the violation
 	EndNode      *yaml.Node    `json:"-" yaml:"-"`                       // end of the violation
+	Timestamp    *time.Time    `json:"-" yaml:"-"`                       // When the result was created.
 }
 
 // RuleResultSet contains all the results found during a linting run, and all the methods required to
@@ -115,13 +117,13 @@ type RuleFunctionSchema struct {
 // then -1 is returned.
 func (r *Rule) GetSeverityAsIntValue() int {
 	switch r.Severity {
-	case severityError:
+	case SeverityError:
 		return 0
-	case severityWarn:
+	case SeverityWarn:
 		return 1
-	case severityInfo:
+	case SeverityInfo:
 		return 2
-	case severityHint:
+	case SeverityHint:
 		return 3
 	}
 	return -1

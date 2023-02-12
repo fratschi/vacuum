@@ -1,11 +1,14 @@
 package motor
 
 import (
+	"fmt"
 	"github.com/daveshanley/vacuum/model"
 	"github.com/daveshanley/vacuum/rulesets"
 	"github.com/stretchr/testify/assert"
-	"io/ioutil"
+	"gopkg.in/yaml.v3"
+	"os"
 	"testing"
+	"time"
 )
 
 func TestApplyRules_PostResponseSuccess(t *testing.T) {
@@ -32,7 +35,7 @@ func TestApplyRules_PostResponseSuccess(t *testing.T) {
 `
 	rc := CreateRuleComposer()
 	rs, _ := rc.ComposeRuleSet([]byte(json))
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	results, err := ApplyRules(rs, burgershop)
 	assert.NoError(t, err)
@@ -65,7 +68,7 @@ func TestApplyRules_PostResponseFailure(t *testing.T) {
 `
 	rc := CreateRuleComposer()
 	rs, _ := rc.ComposeRuleSet([]byte(json))
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	results, err := ApplyRules(rs, burgershop)
 	assert.NoError(t, err)
@@ -77,7 +80,7 @@ func TestApplyRules_PostResponseFailure(t *testing.T) {
 
 func TestApplyRules_TruthyTest_MultipleElements_Fail(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "truthy-test": {
@@ -85,7 +88,7 @@ func TestApplyRules_TruthyTest_MultipleElements_Fail(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "$.info.contact",
-      "severity": "error",
+      "severity": "%s",
       "then": [
 		{
         	"function": "truthy",
@@ -103,10 +106,10 @@ func TestApplyRules_TruthyTest_MultipleElements_Fail(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, _ := rc.ComposeRuleSet([]byte(json))
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	results, err := ApplyRules(rs, burgershop)
 	assert.NoError(t, err)
@@ -116,7 +119,7 @@ func TestApplyRules_TruthyTest_MultipleElements_Fail(t *testing.T) {
 
 func TestApplyRules_LengthTestFail(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "length-test": {
@@ -124,7 +127,7 @@ func TestApplyRules_LengthTestFail(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "$.paths./burgers.post.requestBody.content.application/json",
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "length",
 		"field": "examples",
@@ -135,12 +138,12 @@ func TestApplyRules_LengthTestFail(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	results, err := ApplyRules(rs, burgershop)
 	assert.NoError(t, err)
@@ -151,7 +154,7 @@ func TestApplyRules_LengthTestFail(t *testing.T) {
 
 func TestApplyRules_LengthTestSuccess(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "length-test": {
@@ -159,7 +162,7 @@ func TestApplyRules_LengthTestSuccess(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "$.paths./burgers.post.requestBody.content.application/json",
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "length",
 		"field": "examples",
@@ -171,12 +174,12 @@ func TestApplyRules_LengthTestSuccess(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	results, err := ApplyRules(rs, burgershop)
 	assert.NoError(t, err)
@@ -185,7 +188,7 @@ func TestApplyRules_LengthTestSuccess(t *testing.T) {
 
 func TestApplyRules_PatternTestSuccess_NotMatch(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "pattern-test-description": {
@@ -193,7 +196,7 @@ func TestApplyRules_PatternTestSuccess_NotMatch(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "$..description",
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "pattern",
 		"functionOptions" : { 
@@ -203,12 +206,12 @@ func TestApplyRules_PatternTestSuccess_NotMatch(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	results, err := ApplyRules(rs, burgershop)
 	assert.NoError(t, err)
@@ -217,7 +220,7 @@ func TestApplyRules_PatternTestSuccess_NotMatch(t *testing.T) {
 
 func TestApplyRules_AlphabeticalTestFail_Tags(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "alpha-test-description": {
@@ -225,7 +228,7 @@ func TestApplyRules_AlphabeticalTestFail_Tags(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "$.tags",
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "alphabetical",
 		"functionOptions" : { 
@@ -235,12 +238,12 @@ func TestApplyRules_AlphabeticalTestFail_Tags(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	results, err := ApplyRules(rs, burgershop)
 	assert.NoError(t, err)
@@ -249,7 +252,7 @@ func TestApplyRules_AlphabeticalTestFail_Tags(t *testing.T) {
 
 func TestApplyRules_LengthFail_Tags(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "length-test-description": {
@@ -257,7 +260,7 @@ func TestApplyRules_LengthFail_Tags(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "$.tags",
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "length",
 		"functionOptions" : { 
@@ -267,12 +270,12 @@ func TestApplyRules_LengthFail_Tags(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	results, err := ApplyRules(rs, burgershop)
 	assert.NoError(t, err)
@@ -281,7 +284,7 @@ func TestApplyRules_LengthFail_Tags(t *testing.T) {
 
 func TestApplyRules_LengthSuccess_Description(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "length-test-description": {
@@ -289,7 +292,7 @@ func TestApplyRules_LengthSuccess_Description(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "$.components.schemas.Burger",
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "length",
 		"field": "required",
@@ -300,12 +303,12 @@ func TestApplyRules_LengthSuccess_Description(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	results, err := ApplyRules(rs, burgershop)
 	assert.NoError(t, err)
@@ -314,7 +317,7 @@ func TestApplyRules_LengthSuccess_Description(t *testing.T) {
 
 func TestApplyRules_Xor_Success(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "xor-test-description": {
@@ -329,7 +332,7 @@ func TestApplyRules_Xor_Success(t *testing.T) {
         "$.paths[*][*]..headers[*].examples[*]",
         "$.components.headers[*].examples[*]"
       ],
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "xor",
 		"functionOptions" : { 
@@ -339,12 +342,12 @@ func TestApplyRules_Xor_Success(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	results, err := ApplyRules(rs, burgershop)
 	assert.NoError(t, err)
@@ -353,7 +356,7 @@ func TestApplyRules_Xor_Success(t *testing.T) {
 
 func TestApplyRules_Xor_Fail(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "xor-test-description": {
@@ -368,7 +371,7 @@ func TestApplyRules_Xor_Fail(t *testing.T) {
         "$.paths[*][*]..headers[*].examples[*]",
         "$.components.headers[*].examples[*]"
       ],
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "xor",
 		"functionOptions" : { 
@@ -378,12 +381,12 @@ func TestApplyRules_Xor_Fail(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	results, err := ApplyRules(rs, burgershop)
 	assert.NoError(t, err)
@@ -392,7 +395,7 @@ func TestApplyRules_Xor_Fail(t *testing.T) {
 
 func TestApplyRules_BadData(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "length-test": {
@@ -400,7 +403,7 @@ func TestApplyRules_BadData(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "$.paths./burgers.post.requestBody.content.application/json",
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "length",
 		"field": "examples",
@@ -412,7 +415,7 @@ func TestApplyRules_BadData(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
@@ -425,7 +428,7 @@ func TestApplyRules_BadData(t *testing.T) {
 
 func TestApplyRules_CircularReferences(t *testing.T) {
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/circular-tests.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/circular-tests.yaml")
 
 	// circular references can still be extracted, even without a ruleset.
 
@@ -435,7 +438,7 @@ func TestApplyRules_CircularReferences(t *testing.T) {
 
 func TestApplyRules_LengthSuccess_Description_Rootnode(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "length-test-description": {
@@ -443,7 +446,7 @@ func TestApplyRules_LengthSuccess_Description_Rootnode(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "$",
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "length",
 		"field": "required",
@@ -454,12 +457,12 @@ func TestApplyRules_LengthSuccess_Description_Rootnode(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	results, err := ApplyRules(rs, burgershop)
 	assert.NoError(t, err)
@@ -468,7 +471,7 @@ func TestApplyRules_LengthSuccess_Description_Rootnode(t *testing.T) {
 
 func TestApplyRules_Length_Description_BadPath(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "length-test-description": {
@@ -476,7 +479,7 @@ func TestApplyRules_Length_Description_BadPath(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "I AM NOT A PATH",
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "length",
 		"field": "required",
@@ -487,12 +490,12 @@ func TestApplyRules_Length_Description_BadPath(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	_, err = ApplyRules(rs, burgershop)
 
@@ -504,7 +507,7 @@ func TestApplyRules_Length_Description_BadPath(t *testing.T) {
 
 func TestApplyRules_Length_Description_BadConfig(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "length-test-description": {
@@ -512,7 +515,7 @@ func TestApplyRules_Length_Description_BadConfig(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "$.info",
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "length",
 		"field": "required",
@@ -522,12 +525,12 @@ func TestApplyRules_Length_Description_BadConfig(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	results, err := ApplyRules(rs, burgershop)
 
@@ -538,7 +541,7 @@ func TestApplyRules_Length_Description_BadConfig(t *testing.T) {
 
 func TestApplyRulesToRuleSet_Length_Description_BadPath(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "length-test-description": {
@@ -546,7 +549,7 @@ func TestApplyRulesToRuleSet_Length_Description_BadPath(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "I AM NOT A PATH",
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "length",
 		"field": "required",
@@ -557,12 +560,12 @@ func TestApplyRulesToRuleSet_Length_Description_BadPath(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/burgershop.openapi.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/burgershop.openapi.yaml")
 
 	rse := &RuleSetExecution{
 		RuleSet: rs,
@@ -576,7 +579,7 @@ func TestApplyRulesToRuleSet_Length_Description_BadPath(t *testing.T) {
 
 func TestApplyRulesToRuleSet_CircularReferences(t *testing.T) {
 
-	json := `{
+	json := fmt.Sprintf(`{
   "documentationUrl": "quobix.com",
   "rules": {
     "length-test-description": {
@@ -584,7 +587,7 @@ func TestApplyRulesToRuleSet_CircularReferences(t *testing.T) {
       "recommended": true,
       "type": "style",
       "given": "$",
-      "severity": "error",
+      "severity": "%s",
       "then": {
         "function": "length",
 		"field": "required",
@@ -595,12 +598,12 @@ func TestApplyRulesToRuleSet_CircularReferences(t *testing.T) {
     }
   }
 }
-`
+`, model.SeverityError)
 	rc := CreateRuleComposer()
 	rs, err := rc.ComposeRuleSet([]byte(json))
 	assert.NoError(t, err)
 
-	burgershop, _ := ioutil.ReadFile("../model/test_files/circular-tests.yaml")
+	burgershop, _ := os.ReadFile("../model/test_files/circular-tests.yaml")
 
 	rse := &RuleSetExecution{
 		RuleSet: rs,
@@ -618,7 +621,8 @@ func TestApplyRulesToRuleSet_CircularReferences(t *testing.T) {
 
 func TestRuleSet_ContactProperties(t *testing.T) {
 
-	yml := `info:
+	yml := `openapi: 3.1.0
+info:
   contact:
     name: pizza
     email: monkey`
@@ -638,7 +642,8 @@ func TestRuleSet_ContactProperties(t *testing.T) {
 
 func TestRuleSet_InfoContact(t *testing.T) {
 
-	yml := `info:
+	yml := `openapi: 3.1.0
+info:
   title: Terrible API Spec
   description: No operations, no contact, useless.`
 
@@ -657,7 +662,8 @@ func TestRuleSet_InfoContact(t *testing.T) {
 
 func TestRuleSet_InfoDescription(t *testing.T) {
 
-	yml := `info:
+	yml := `openapi: 3.1.0
+info:
   title: Terrible API Spec
   contact:
     name: rubbish
@@ -678,7 +684,8 @@ func TestRuleSet_InfoDescription(t *testing.T) {
 
 func TestRuleSet_InfoLicense(t *testing.T) {
 
-	yml := `info:
+	yml := `openapi: 3.1.0
+info:
   title: Terrible API Spec
   description: really crap
   contact:
@@ -700,7 +707,8 @@ func TestRuleSet_InfoLicense(t *testing.T) {
 
 func TestRuleSet_InfoLicenseUrl(t *testing.T) {
 
-	yml := `info:
+	yml := `openapi: 3.1.0
+info:
   title: Terrible API Spec
   description: really crap
   contact:
@@ -724,7 +732,8 @@ func TestRuleSet_InfoLicenseUrl(t *testing.T) {
 
 func TestRuleSet_NoEvalInMarkdown(t *testing.T) {
 
-	yml := `info:
+	yml := `openapi: 3.1.0
+info:
   description: this has no eval('alert(1234') impact in vacuum, but JS tools might suffer.`
 
 	rules := make(map[string]*model.Rule)
@@ -742,7 +751,8 @@ func TestRuleSet_NoEvalInMarkdown(t *testing.T) {
 
 func TestRuleSet_NoScriptInMarkdown(t *testing.T) {
 
-	yml := `info:
+	yml := `openapi: 3.1.0
+info:
   description: this has no impact in vacuum, <script>alert('XSS for you')</script>`
 
 	rules := make(map[string]*model.Rule)
@@ -761,7 +771,8 @@ func TestRuleSet_NoScriptInMarkdown(t *testing.T) {
 
 func TestRuleSet_TagsAlphabetical(t *testing.T) {
 
-	yml := `tags:
+	yml := `openapi: 3.1.0
+tags:
   - name: zebra
   - name: chicken
   - name: puppy`
@@ -782,7 +793,8 @@ func TestRuleSet_TagsAlphabetical(t *testing.T) {
 
 func TestRuleSet_TagsMissing(t *testing.T) {
 
-	yml := `info:
+	yml := `openapi: 3.1.0
+info:
   contact:
     name: Duck
 paths:
@@ -810,7 +822,8 @@ components:
 
 func TestRuleSet_TagsNotArray(t *testing.T) {
 
-	yml := `info:
+	yml := `openapi: 3.1.0
+info:
   contact:
     name: Duck
 tags: none
@@ -839,7 +852,8 @@ components:
 
 func TestRuleSet_TagsWrongType(t *testing.T) {
 
-	yml := `info:
+	yml := `openapi: 3.1.0
+info:
   contact:
     name: Duck
 tags:
@@ -869,7 +883,8 @@ components:
 
 func TestRuleSet_OperationIdInvalidInUrl(t *testing.T) {
 
-	yml := `paths:
+	yml := `openapi: 3.1.0
+paths:
   /hi:
     get:
       operationId: nice rice
@@ -893,7 +908,8 @@ func TestRuleSet_OperationIdInvalidInUrl(t *testing.T) {
 
 func TestRuleSetGetOperationTagsRule(t *testing.T) {
 
-	yml := `paths:
+	yml := `openapi: 3.1.0
+paths:
   /hi:
     get:
       tags:
@@ -918,7 +934,8 @@ func TestRuleSetGetOperationTagsRule(t *testing.T) {
 
 func TestRuleSetGetOperationTagsMultipleRule(t *testing.T) {
 
-	yml := `paths:
+	yml := `openapi: 3.1.0
+paths:
   /hi:
     get:
       tags:
@@ -949,7 +966,8 @@ func TestRuleSetGetOperationTagsMultipleRule(t *testing.T) {
 
 func TestRuleSetGetPathDeclarationsMustExist(t *testing.T) {
 
-	yml := `paths:
+	yml := `openapi: 3.1.0
+paths:
   /hi/{there}:
     get:
       operationId: a
@@ -974,7 +992,8 @@ func TestRuleSetGetPathDeclarationsMustExist(t *testing.T) {
 
 func TestRuleSetNoPathTrailingSlashTest(t *testing.T) {
 
-	yml := `paths:
+	yml := `openapi: 3.1.0
+paths:
   /hi/{there}/:
     get:
       operationId: a
@@ -1000,7 +1019,8 @@ func TestRuleSetNoPathTrailingSlashTest(t *testing.T) {
 
 func TestRuleSetNoPathQueryString(t *testing.T) {
 
-	yml := `paths:
+	yml := `openapi: 3.1.0
+paths:
   /hi/{there}?oh=yeah:
     get:
       operationId: a
@@ -1026,7 +1046,8 @@ func TestRuleSetNoPathQueryString(t *testing.T) {
 
 func TestRuleTagDescriptionRequiredRule(t *testing.T) {
 
-	yml := `tags:
+	yml := `openapi: 3.1.0
+tags:
   - name: pizza
     description: nice
   - name: cinnamon
@@ -1245,7 +1266,8 @@ func TestRuleOAS3HostTrailingSlashRule(t *testing.T) {
 
 func TestRuleOAS3HostTrailingSlashRule_Fail(t *testing.T) {
 
-	yml := `servers:
+	yml := `openapi: 3.1.0
+servers:
  - url: https://quobix.com/
  - url: https://pb33f.io/
 `
@@ -1308,9 +1330,73 @@ servers:
 
 }
 
+type testRule struct{}
+
+func (t *testRule) GetSchema() model.RuleFunctionSchema {
+	return model.RuleFunctionSchema{
+		Name: "test",
+	}
+}
+
+func (d *testRule) RunRule(nodes []*yaml.Node,
+	context model.RuleFunctionContext,
+) []model.RuleFunctionResult {
+	panic("run away!")
+}
+
+func TestCustomRuleHandlePanic(t *testing.T) {
+
+	rules := map[string]*model.Rule{
+		"test": {
+			Id:           "test",
+			Formats:      model.OAS3AllFormat,
+			Given:        "$",
+			Recommended:  true,
+			RuleCategory: model.RuleCategories[model.CategoryValidation],
+			Type:         "validation",
+			Severity:     model.SeverityError,
+			Then: model.RuleAction{
+				Function: "test",
+			},
+		},
+	}
+
+	set := &rulesets.RuleSet{
+		DocumentationURI: "",
+		Rules:            rules,
+		Description:      "",
+	}
+
+	spec := []byte(`openapi: 3.1
+components:
+  schemas:
+    none:
+      type: int`)
+
+	panicRan := false
+	saveMePlease := func(r any) {
+		panicRan = true
+	}
+
+	ApplyRulesToRuleSet(
+		&RuleSetExecution{
+			PanicFunction: saveMePlease,
+			RuleSet:       set,
+			Spec:          spec,
+			CustomFunctions: map[string]model.RuleFunction{
+				"test": &testRule{},
+			},
+		})
+
+	//nolint:staticcheck // ignore this linting issue, its no a bug, it's on purpose.
+	time.Sleep(100)
+	assert.True(t, panicRan)
+
+}
+
 func TestPetstoreSpecAgainstDefaultRuleSet(t *testing.T) {
 
-	b, _ := ioutil.ReadFile("../model/test_files/petstorev3.json")
+	b, _ := os.ReadFile("../model/test_files/petstorev3.json")
 	rs := rulesets.BuildDefaultRuleSets()
 	results, err := ApplyRules(rs.GenerateOpenAPIDefaultRuleSet(), b)
 
@@ -1321,7 +1407,7 @@ func TestPetstoreSpecAgainstDefaultRuleSet(t *testing.T) {
 
 func TestStripeSpecAgainstDefaultRuleSet(t *testing.T) {
 
-	b, _ := ioutil.ReadFile("../model/test_files/stripe.yaml")
+	b, _ := os.ReadFile("../model/test_files/stripe.yaml")
 	rs := rulesets.BuildDefaultRuleSets()
 	results, err := ApplyRules(rs.GenerateOpenAPIDefaultRuleSet(), b)
 
@@ -1331,7 +1417,7 @@ func TestStripeSpecAgainstDefaultRuleSet(t *testing.T) {
 }
 
 func Benchmark_K8sSpecAgainstDefaultRuleSet(b *testing.B) {
-	m, _ := ioutil.ReadFile("../model/test_files/k8s.json")
+	m, _ := os.ReadFile("../model/test_files/k8s.json")
 	rs := rulesets.BuildDefaultRuleSets()
 	for n := 0; n < b.N; n++ {
 		_, err := ApplyRules(rs.GenerateOpenAPIDefaultRuleSet(), m)

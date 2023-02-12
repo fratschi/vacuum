@@ -6,6 +6,7 @@ package openapi
 import (
 	"fmt"
 	"github.com/daveshanley/vacuum/model"
+	v3 "github.com/pb33f/libopenapi/datamodel/low/v3"
 	"github.com/pb33f/libopenapi/utils"
 	"gopkg.in/yaml.v3"
 )
@@ -46,6 +47,7 @@ func (ot OperationTags) RunRule(nodes []*yaml.Node, context model.RuleFunctionCo
 			} else {
 				verbNode = pathsNode.Content[x+1]
 			}
+			skip := false
 			for y, verbMapNode := range verbNode.Content {
 
 				if verbMapNode.Tag == "!!str" {
@@ -53,7 +55,20 @@ func (ot OperationTags) RunRule(nodes []*yaml.Node, context model.RuleFunctionCo
 				} else {
 					continue
 				}
-
+				// skip non-operations
+				switch currentVerb {
+				case
+					// No v2.*Label here, they're duplicates
+					v3.GetLabel, v3.PutLabel, v3.PostLabel, v3.DeleteLabel, v3.OptionsLabel, v3.HeadLabel, v3.PatchLabel, v3.TraceLabel:
+					// Ok, an operation
+				default:
+					skip = true
+					continue
+				}
+				if skip {
+					skip = false
+					continue
+				}
 				var opTagsNode *yaml.Node
 
 				if y+1 < len(verbNode.Content) {

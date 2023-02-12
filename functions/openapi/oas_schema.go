@@ -6,7 +6,9 @@ package openapi
 import (
 	"fmt"
 	"github.com/daveshanley/vacuum/model"
+	"github.com/pb33f/libopenapi/utils"
 	"github.com/santhosh-tekuri/jsonschema/v5"
+	"github.com/vmware-labs/yaml-jsonpath/pkg/yamlpath"
 	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
 )
@@ -53,7 +55,7 @@ func (os OASSchema) RunRule(nodes []*yaml.Node, context model.RuleFunctionContex
 
 		if validateErr != nil {
 			results = append(results, model.RuleFunctionResult{
-				Message:   fmt.Sprintf("OpenAPI specification cannot be validated: %v", validateErr.Error()),
+				Message:   fmt.Sprintf("Swagger specification cannot be validated: %v", validateErr.Error()),
 				StartNode: nodes[0],
 				EndNode:   nodes[0],
 				Path:      "$",
@@ -66,7 +68,7 @@ func (os OASSchema) RunRule(nodes []*yaml.Node, context model.RuleFunctionContex
 		if !res.Valid() {
 			for _, resErr := range res.Errors() {
 				results = append(results, model.RuleFunctionResult{
-					Message:   fmt.Sprintf("OpenAPI specification is invalid: %s", resErr.Description()),
+					Message:   fmt.Sprintf("Swagger specification is invalid: %s", resErr.Description()),
 					StartNode: nodes[0],
 					EndNode:   nodes[0],
 					Path:      "$",
@@ -82,27 +84,50 @@ func (os OASSchema) RunRule(nodes []*yaml.Node, context model.RuleFunctionContex
 	if validationError := schema.Validate(*info.SpecJSON); validationError != nil {
 
 		if failure, ok := validationError.(*jsonschema.ValidationError); ok {
-			for _, fail := range failure.Causes {
-				results = append(results, model.RuleFunctionResult{
-					Message: fmt.Sprintf("OpenAPI specification is invalid: %s %v", fail.KeywordLocation,
-						fail.Message),
-					StartNode: nodes[0],
-					EndNode:   nodes[0],
-					Path:      "$",
-					Rule:      context.Rule,
-				})
-			}
+			diveIntoFailure(failure.Causes, &results, nodes[0], context.Rule)
 		}
 		if failure, ok := validationError.(*jsonschema.InvalidJSONTypeError); ok {
 			results = append(results, model.RuleFunctionResult{
-				Message:   fmt.Sprintf("OpenAPI specification is invalid: %v", failure.Error()),
+				Message:   fmt.Sprintf("OpenAPI specification has `invalid` data: %v", failure.Error()),
 				StartNode: nodes[0],
 				EndNode:   nodes[0],
 				Path:      "$",
 				Rule:      context.Rule,
 			})
 		}
-
 	}
 	return results
+}
+
+func diveIntoFailure(validationErrors []*jsonschema.ValidationError,
+	results *[]model.RuleFunctionResult,
+	root *yaml.Node,
+	rule *model.Rule) {
+	for x := range validationErrors {
+		if len(validationErrors[x].Causes) > 0 {
+			diveIntoFailure(validationErrors[x].Causes, results, root, rule)
+		}
+		_, path := utils.ConvertComponentIdIntoFriendlyPathSearch(validationErrors[x].InstanceLocation)
+
+		// try and find node using path.
+		searchPath, err := yamlpath.NewPath(path)
+		var foundNode *yaml.Node
+		if err == nil {
+			foundNodesFromPath, pErr := searchPath.Find(root)
+			if pErr != nil {
+				foundNode = root
+			} else {
+				foundNode = foundNodesFromPath[0]
+			}
+		}
+		*results = append(*results, model.RuleFunctionResult{
+			Message: fmt.Sprintf("OpenAPI specification is `invalid`: %s %v",
+				validationErrors[x].InstanceLocation,
+				validationErrors[x].Message),
+			StartNode: foundNode,
+			EndNode:   foundNode,
+			Path:      path,
+			Rule:      rule,
+		})
+	}
 }

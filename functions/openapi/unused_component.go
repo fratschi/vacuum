@@ -9,6 +9,7 @@ import (
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
 	"gopkg.in/yaml.v3"
+	"strings"
 )
 
 // UnusedComponent will check if a component or definition has been created, but it's not used anywhere by anything.
@@ -33,7 +34,7 @@ func (uc UnusedComponent) RunRule(nodes []*yaml.Node, context model.RuleFunction
 
 	// extract all references, and every single component
 	allRefs := context.Index.GetAllReferences()
-	schemas := context.Index.GetAllSchemas()
+	schemas := context.Index.GetAllComponentSchemas()
 	responses := context.Index.GetAllResponses()
 	parameters := context.Index.GetAllParameters()
 	examples := context.Index.GetAllExamples()
@@ -43,8 +44,43 @@ func (uc UnusedComponent) RunRule(nodes []*yaml.Node, context model.RuleFunction
 	links := context.Index.GetAllLinks()
 	callbacks := context.Index.GetAllCallbacks()
 
+	// extract securityRequirements from swagger. These are not mapped as they are not $refs
+	// so, we need to map them as if they were.
+	secReq := context.Index.GetSecurityRequirementReferences()
+	if context.SpecInfo != nil && context.SpecInfo.SpecType == utils.OpenApi2 {
+		for r := range secReq {
+			allRefs[fmt.Sprintf("#/securityDefinitions/%s", r)] = &index.Reference{}
+		}
+	}
+
+	// extract security from OpenAPI.
+	checkOpenAPISecurity := func(key string) bool {
+		if strings.Contains(key, "securitySchemes") {
+			segs := strings.Split(key, "/")
+			def := segs[len(segs)-1]
+			for r := range context.Index.GetSecurityRequirementReferences() {
+				if r == def {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	// create poly maps.
+	oneOfRefs := make(map[string]*index.Reference)
+	allOfRefs := make(map[string]*index.Reference)
+	anyOfRefs := make(map[string]*index.Reference)
+
+	// include all polymorphic references.
 	for _, ref := range context.Index.GetPolyAllOfReferences() {
-		allRefs[ref.Definition] = ref
+		allOfRefs[ref.Definition] = ref
+	}
+	for _, ref := range context.Index.GetPolyOneOfReferences() {
+		oneOfRefs[ref.Definition] = ref
+	}
+	for _, ref := range context.Index.GetPolyAnyOfReferences() {
+		anyOfRefs[ref.Definition] = ref
 	}
 
 	// if a component does not exist in allRefs, it was not referenced anywhere.
@@ -66,9 +102,23 @@ func (uc UnusedComponent) RunRule(nodes []*yaml.Node, context model.RuleFunction
 	// find everything that was never referenced.
 	for _, resultMap := range mapsToSearch {
 		for key, ref := range resultMap {
+
+			// check everything!
 			if allRefs[key] == nil {
-				// nothing is using this!
-				notUsed[key] = ref
+				found := false
+				// check poly refs if the reference can't be found
+				if oneOfRefs[key] != nil || allOfRefs[key] != nil || anyOfRefs[key] != nil {
+					found = true
+				}
+
+				// check if this is a security reference definition (that does not use a $ref)
+				if !found {
+					found = checkOpenAPISecurity(key)
+				}
+				if !found {
+					// nothing is using this!
+					notUsed[key] = ref
+				}
 			}
 		}
 	}
