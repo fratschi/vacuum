@@ -5,8 +5,11 @@
 ![Pipeline](https://github.com/daveshanley/vacuum/workflows/vaccum%20pipeline/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/daveshanley/vacuum)](https://goreportcard.com/report/github.com/daveshanley/vacuum)
 [![discord](https://img.shields.io/discord/923258363540815912)](https://discord.gg/UAcUF78MQN)
-[![Docs](https://img.shields.io/badge/godoc-reference-5fafd7)](https://pkg.go.dev/github.com/daveshanley/vacuum)
-
+[![Docs](https://img.shields.io/badge/godoc-reference-5fafd7)](https:/-/pkg.go.dev/github.com/daveshanley/vacuum)
+[![GitHub downloads](https://img.shields.io/github/downloads/daveshanley/vacuum/total?label=github%20downloads&style=flat-square)](https://github.com/daveshanley/vacuum/releases)
+[![npm](https://img.shields.io/npm/dm/@quobix/vacuum?style=flat-square&label=npm%20downloads)](https://www.npmjs.com/package/@quobix/vacuum)
+[![Docker Pulls](https://img.shields.io/docker/pulls/dshanley/vacuum?style=flat-square)](https://hub.docker.com/r/dshanley/vacuum)
+[![Mentioned in Awesome Go](https://awesome.re/mentioned-badge-flat.svg)](https://github.com/avelino/awesome-go)
 
 An **ultra-super-fast**, lightweight OpenAPI linter and quality checking tool, written in golang and inspired by [Spectral](https://github.com/stoplightio/spectral).
 
@@ -36,6 +39,24 @@ yarn global add @quobix/vacuum
 curl -fsSL https://quobix.com/scripts/install_vacuum.sh | sh
 ```
 
+## Install using [Docker](https://hub.docker.com/r/dshanley/vacuum)
+
+The image is available at: https://hub.docker.com/r/dshanley/vacuum
+
+```
+docker pull dshanley/vacuum
+```
+
+To run, mount the current working dir to the container and use a relative path to your spec, like so
+
+```
+docker run --rm -v $PWD:/work:ro dshanley/vacuum lint <your-openapi-spec.yaml>
+```
+Alternatively, you can pull it from
+[Github packages](https://github.com/daveshanley/vacuum/pkgs/container/vacuum).
+To do that, replace `dshanley/vacuum` with `ghcr.io/daveshanley/vacuum` in the above commands.
+
+
 ---
 
 
@@ -58,6 +79,22 @@ come say hi!
 
 ## Documentation
 
+---
+🔥 **New in** `v0.3.0+` 🔥 : [Custom JavaScript Functions](https://quobix.com/vacuum/api/custom-javascript-functions/) are now available out of the box.
+
+Write custom functions in JavaScript and use them in any ruleset. No need
+to compile golang code to extend vacuum anymore!
+
+[Learn more about building custom JavaScript functions](https://quobix.com/vacuum/api/custom-javascript-functions/).
+
+
+---
+**New in** `v0.2.0+`: [OWASP API rules](https://quobix.com/vacuum/rules/owasp/) are now available out of the box.
+
+[Learn more about enabling OWASP API rules](https://quobix.com/vacuum/rulesets/owasp/).
+
+---
+
 ### [Quick Start Guide 🚀](https://quobix.com/vacuum/start)
 
 See all the documentation at https://quobix.com/vacuum
@@ -66,6 +103,7 @@ See all the documentation at https://quobix.com/vacuum
 - [About vacuum](https://quobix.com/vacuum/about/)
 - [Why should you care?](https://quobix.com/vacuum/why/)
 - [Concepts](https://quobix.com/vacuum/concepts/)
+- [FAQ](https://quobix.com/vacuum/faq/)
 - [CLI Commands](https://quobix.com/vacuum/commands/)
   - [lint](https://quobix.com/vacuum/commands/lint/)
   - [vacuum report](https://quobix.com/vacuum/commands/report/)
@@ -76,6 +114,9 @@ See all the documentation at https://quobix.com/vacuum
   - [Using The Index](https://quobix.com/vacuum/api/spec-index/)
   - [RuleResultSet](https://quobix.com/vacuum/api/rule-resultset/)
   - [Loading a RuleSet](https://quobix.com/vacuum/api/loading-ruleset/)
+  - [Linting Non-OpenAPI Files](https://quobix.com/vacuum/api/non-openapi/)
+  - [Custom Golang Functions](https://quobix.com/vacuum/api/custom-functions/)
+  - [Custom JavaScript Functions](https://quobix.com/vacuum/api/custom-javascript-functions/)
 - [Rules](https://quobix.com/vacuum/rules/)
   - [Examples](https://quobix.com/vacuum/rules/examples/)
   - [Tags](https://quobix.com/vacuum/rules/tags/)
@@ -85,9 +126,11 @@ See all the documentation at https://quobix.com/vacuum
   - [Operations & Paths](https://quobix.com/vacuum/rules/operations/)
   - [Validation](https://quobix.com/vacuum/rules/validation/)
   - [Security](https://quobix.com/vacuum/rules/security/)
+  - [OWASP](https://quobix.com/vacuum/rules/owasp/)
 - [Functions](https://quobix.com/vacuum/functions/)
   - [Core Functions](https://quobix.com/vacuum/functions/core/) 
   - [OpenAPI Functions](https://quobix.com/vacuum/functions/openapi/)
+  - [OWASP Functions](https://quobix.com/vacuum/functions/owasp/)
 - [Understanding RuleSets](https://quobix.com/vacuum/rulesets/understanding/)
   - [All Rules](https://quobix.com/vacuum/rulesets/all/)
   - [No Rules](https://quobix.com/vacuum/rulesets/no-rules/)
@@ -126,49 +169,6 @@ No external dependencies, the HTML report will run completely offline.
 > **_Supports OpenAPI Version 2 (Swagger) and Version 3+_**
 
 You can use either **YAML** or **JSON**, vacuum supports both formats.
-
-AsyncAPI support is coming soon!
-
-## Check out the code
-
-```
-git clone https://github.com/daveshanley/vacuum.git
-```
-### Change directory into `vacuum`
-
-```
-cd vacuum
-```
-
-## Build the code
-
-```
-go build vacuum.go
-```
-
-## Run the code
-
-```
-./vacuum lint <your-openapi-spec.yaml>
-```
-
-## Running vacuum via Docker
-
-vacuum is available as a container, you can pull the image from [Docker Hub](https://hub.docker.com/r/dshanley/vacuum)
-
-```
-docker pull dshanley/vacuum
-```
-
-To run, mount the current working dir to the container and use a relative path to your spec, like so
-
-```
-docker run --rm -v $PWD:/work:ro dshanley/vacuum lint <your-openapi-spec.yaml>
-```
-
-Alternatively, you can pull it from
-[Github packages](https://github.com/daveshanley/vacuum/pkgs/container/vacuum).
-To do that, replace `dshanley/vacuum` with `ghcr.io/daveshanley/vacuum` in the above commands.
 
 ## Using vacuum with pre-commit
 
@@ -235,6 +235,7 @@ The options here are:
 - `security`
 - `tags`
 - `validation`
+- `owasp`
 
 ## Generate a Spectral compatible report
 
@@ -277,10 +278,10 @@ if you're interested in seeing how things are progressing, it's available.
 ```
 
 ---
-## Supply your own Spectral ruleset
+## Supply your own Spectral compatible ruleset
 
 If you're already using Spectral and you have your own [custom ruleset](https://meta.stoplight.io/docs/spectral/e5b9616d6d50c-custom-rulesets#custom-rulesets),
-then you can use it with Vacuum! 
+then you can use it with vacuum! 
 
 The `lint`, `dashboard` and `spectral-report` commands all accept a `-r` or `--ruleset` flag, defining the path to your ruleset file.
 
@@ -313,6 +314,36 @@ The `lint`, `dashboard` and `spectral-report` commands all accept a `-r` or `--r
 
 ---
 
-Let me know what you think.
+## Configuration
+
+### File
+You can configure vacuum using a configuration file named `vacuum.conf.yaml`
+
+By default, vacuum searches for this file in the following directories
+1. Working directory
+2. `$XDG_CONFIG_HOME`
+3. `${HOME}/.config`
+
+You can also specify a path to a file using the `--config` flag
+
+Global flags are configured as top level nodes
+```yaml
+time: true
+base: 'http://example.com'
+...
+```
+Command specific flags are configured under a node with the commands name
+```yaml
+...
+lint:
+  silent: true
+  ...
+```
+
+### Environmental variables
+
+You can configure global vacuum flags using environmental variables in the form of: `VACUUM_<flag>`
+
+If a flag, has a `-` in it, replace with `_`
 
 > Logo gopher is modified, originally from [egonelbre](https://github.com/egonelbre/gophers)

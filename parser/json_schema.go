@@ -8,8 +8,13 @@ import (
 	"errors"
 	"fmt"
 	yamlAlt "github.com/ghodss/yaml"
+	validationErrors "github.com/pb33f/libopenapi-validator/errors"
+	"github.com/pb33f/libopenapi-validator/schema_validation"
+	highBase "github.com/pb33f/libopenapi/datamodel/high/base"
+	"github.com/pb33f/libopenapi/datamodel/low"
+	lowBase "github.com/pb33f/libopenapi/datamodel/low/base"
+	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
-	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
 	"time"
 )
@@ -53,69 +58,100 @@ type ExampleValidation struct {
 
 // ValidateExample will check if a schema has a valid type and example, and then perform a simple validation on the
 // value that has been set.
-func ValidateExample(jc *Schema) []*ExampleValidation {
+func ValidateExample(jc *highBase.Schema) []*ExampleValidation {
 	var examples []*ExampleValidation
 	if len(jc.Properties) > 0 {
 		for propName, prop := range jc.Properties {
-			if prop.Type != nil && prop.Example != nil {
 
+			sc := prop.Schema()
+			if sc.Type != nil && sc.Example != nil {
+
+				// todo: replace this with reflection.
 				isInt := false
 				isBool := false
 				isFloat := false
 				isString := false
 
-				if _, ok := prop.Example.(string); ok {
+				if _, ok := sc.Example.(string); ok {
 					isString = true
 				}
 
-				if _, ok := prop.Example.(bool); ok {
+				if _, ok := sc.Example.(bool); ok {
 					isBool = true
 				}
 
-				if _, ok := prop.Example.(float64); ok {
+				if _, ok := sc.Example.(float64); ok {
 					isFloat = true
 				}
 
-				if _, ok := prop.Example.(int); ok {
+				if _, ok := sc.Example.(int); ok {
 					isInt = true
 				}
 
 				invalidMessage := "example value '%v' in '%s' is not a valid %v"
 
-				switch *prop.Type {
-				case utils.StringLabel:
-					if !isString {
-						examples = append(examples, &ExampleValidation{
-							Message: fmt.Sprintf(invalidMessage, prop.Example, propName, utils.IntegerLabel),
-						})
-					}
-				case utils.IntegerLabel:
-					if !isInt {
-						examples = append(examples, &ExampleValidation{
-							Message: fmt.Sprintf(invalidMessage, prop.Example, propName, utils.IntegerLabel),
-						})
-					}
-				case utils.NumberLabel:
-					if !isFloat {
-						examples = append(examples, &ExampleValidation{
-							Message: fmt.Sprintf(invalidMessage, prop.Example, propName, utils.NumberLabel),
-						})
-					}
-				case utils.BooleanLabel:
-					if !isBool {
-						examples = append(examples, &ExampleValidation{
-							Message: fmt.Sprintf(invalidMessage, prop.Example, propName, utils.BooleanLabel),
-						})
+				for y := range sc.Type {
+					switch sc.Type[y] {
+					case utils.StringLabel:
+						if !isString {
+							examples = append(examples, &ExampleValidation{
+								Message: fmt.Sprintf(invalidMessage, sc.Example, propName, utils.IntegerLabel),
+							})
+						}
+					case utils.IntegerLabel:
+						if !isInt {
+							examples = append(examples, &ExampleValidation{
+								Message: fmt.Sprintf(invalidMessage, sc.Example, propName, utils.IntegerLabel),
+							})
+						}
+					case utils.NumberLabel:
+						if !isFloat {
+							examples = append(examples, &ExampleValidation{
+								Message: fmt.Sprintf(invalidMessage, sc.Example, propName, utils.NumberLabel),
+							})
+						}
+					case utils.BooleanLabel:
+						if !isBool {
+							examples = append(examples, &ExampleValidation{
+								Message: fmt.Sprintf(invalidMessage, sc.Example, propName, utils.BooleanLabel),
+							})
+						}
 					}
 				}
+				switch sc.Type {
+
+				}
 			} else {
-				if len(prop.Properties) > 0 {
-					examples = append(examples, ValidateExample(prop)...)
+				if len(sc.Properties) > 0 {
+					examples = append(examples, ValidateExample(sc)...)
 				}
 			}
 		}
 	}
 	return examples
+}
+
+func ConvertYAMLIntoJSONSchema(str string, index *index.SpecIndex) (*highBase.Schema, error) {
+	node := yaml.Node{}
+	err := yaml.Unmarshal([]byte(str), &node)
+	if err != nil {
+		return nil, err
+	}
+	return ConvertNodeIntoJSONSchema(node.Content[0], index)
+}
+
+func ConvertNodeIntoJSONSchema(node *yaml.Node, index *index.SpecIndex) (*highBase.Schema, error) {
+	sch := lowBase.Schema{}
+	mbErr := low.BuildModel(node, &sch)
+	if mbErr != nil {
+		return nil, mbErr
+	}
+	schErr := sch.Build(node, index)
+	if schErr != nil {
+		return nil, schErr
+	}
+	highSch := highBase.NewSchema(&sch)
+	return highSch, nil
 }
 
 // ConvertNodeDefinitionIntoSchema will convert any definition node (components, params, etc.) into a standard
@@ -155,7 +191,7 @@ func ConvertNodeDefinitionIntoSchema(node *yaml.Node) (*Schema, error) {
 }
 
 // ValidateNodeAgainstSchema will accept a schema and a node and check it's valid and return the result, or error.
-func ValidateNodeAgainstSchema(schema *Schema, node *yaml.Node, isArray bool) (*gojsonschema.Result, error) {
+func ValidateNodeAgainstSchema(schema *highBase.Schema, node *yaml.Node, isArray bool) (bool, []*validationErrors.ValidationError) {
 
 	//convert node to raw yaml first, then convert to json to be used in schema validation
 	var d []byte
@@ -163,26 +199,25 @@ func ValidateNodeAgainstSchema(schema *Schema, node *yaml.Node, isArray bool) (*
 	if !isArray {
 		d, e = yaml.Marshal(node)
 	} else {
-		d, e = yaml.Marshal([]*yaml.Node{node})
+		if !utils.IsNodeArray(node) {
+			d, e = yaml.Marshal([]*yaml.Node{node})
+		} else {
+			d, e = yaml.Marshal(node)
+		}
+	}
+	if e != nil {
+		return false, []*validationErrors.ValidationError{{Message: e.Error()}}
 	}
 
 	// safely convert yaml to JSON.
 	n, err := yamlAlt.YAMLToJSON(d)
 	if err != nil {
-		return nil, e
+		return false, []*validationErrors.ValidationError{{Message: err.Error()}}
 	}
 
-	// convert schema to JSON.
-	sJson, err := json.Marshal(schema)
-	if err != nil {
-		return nil, err
-	}
+	var decoded any
+	_ = json.Unmarshal(n, &decoded)
 
-	// create loaders
-	rawObject := gojsonschema.NewStringLoader(string(n))
-	schemaToCheck := gojsonschema.NewStringLoader(string(sJson))
-
-	//validate
-	return gojsonschema.Validate(schemaToCheck, rawObject)
-
+	validator := schema_validation.NewSchemaValidator()
+	return validator.ValidateSchemaObject(schema, decoded)
 }

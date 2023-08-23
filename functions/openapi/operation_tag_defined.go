@@ -79,7 +79,7 @@ func (td TagDefined) RunRule(nodes []*yaml.Node, context model.RuleFunctionConte
 					for j, operationTag := range opTagsNode.Content {
 						if operationTag.Tag == "!!str" {
 							if !seenGlobalTags[operationTag.Value] {
-								endNode := utils.FindLastChildNode(operationTag)
+								endNode := utils.FindLastChildNodeWithLevel(operationTag, 0)
 								if j+1 < len(opTagsNode.Content) {
 									endNode = opTagsNode.Content[j+1]
 								}

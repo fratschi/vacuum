@@ -20,7 +20,7 @@ func CreateRuleComposer() *RuleComposer {
 
 // ComposeRuleSet compose a byte array ruleset specification into a *model.RuleSet
 func (rc *RuleComposer) ComposeRuleSet(ruleset []byte) (*rulesets.RuleSet, error) {
-	rs, err := rulesets.CreateRuleSetUsingJSON(ruleset)
+	rs, err := rulesets.CreateRuleSetFromData(ruleset)
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +35,11 @@ func (rc *RuleComposer) ComposeRuleSet(ruleset []byte) (*rulesets.RuleSet, error
 
 	// check builtinFunctions exist for rules defined
 	for k, v := range rs.Rules {
+
+		// map ID if it's not been set.
+		if v.Id == "" {
+			v.Id = k
+		}
 
 		if v.Then != nil {
 

@@ -8,9 +8,11 @@ import (
 	"github.com/daveshanley/vacuum/model"
 	"github.com/daveshanley/vacuum/model/reports"
 	"github.com/daveshanley/vacuum/parser"
+	validationErrors "github.com/pb33f/libopenapi-validator/errors"
+	highBase "github.com/pb33f/libopenapi/datamodel/high/base"
 	"github.com/pb33f/libopenapi/utils"
-	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
+	"strings"
 	"sync"
 	"time"
 )
@@ -242,6 +244,7 @@ func checkDefinitionForExample(componentNode *yaml.Node, compName string,
 
 				// check for an example
 				exKey, exValue := utils.FindKeyNode("example", prop.Content)
+				examplesKey, examplesValue := utils.FindKeyNodeTop("examples", prop.Content)
 				_, typeValue := utils.FindKeyNode("type", prop.Content)
 				_, enumValue := utils.FindKeyNode("enum", prop.Content)
 
@@ -260,7 +263,7 @@ func checkDefinitionForExample(componentNode *yaml.Node, compName string,
 					continue
 				}
 
-				if exKey == nil && exValue == nil && !skip {
+				if examplesKey == nil && examplesValue == nil && exKey == nil && exValue == nil && !skip {
 
 					res := model.BuildFunctionResultString(fmt.Sprintf("Missing example for `%s` on component `%s`",
 						pName, compName))
@@ -287,35 +290,50 @@ func checkDefinitionForExample(componentNode *yaml.Node, compName string,
 					}
 
 					// so there is an example, lets validate it.
-					var schema *parser.Schema
+					var schema *highBase.Schema
 
 					// if this node is somehow circular, we won't be able to convert it into a schema.
 					if !miniCircCheck(prop, make(map[*yaml.Node]bool), 0) {
-						schema, _ = parser.ConvertNodeDefinitionIntoSchema(prop)
+						schema, _ = parser.ConvertNodeIntoJSONSchema(prop, context.Index)
 					} else {
 						continue // no point moving on past here.
 					}
 
-					var res *gojsonschema.Result
-					if schema != nil && schema.Type != nil && *schema.Type == "array" && exValue != nil {
-						res, _ = parser.ValidateNodeAgainstSchema(schema, exValue, true)
+					var res bool
+					var isArr bool
+					var errs []*validationErrors.ValidationError
+					for i := range schema.Type {
+						if schema.Type[i] == "array" {
+							isArr = true
+						}
 					}
-					if schema != nil && schema.Type != nil && *schema.Type != "array" && exValue != nil {
-						res, _ = parser.ValidateNodeAgainstSchema(schema, exValue, false)
+
+					if schema != nil && schema.Type != nil && isArr && exValue != nil {
+						res, errs = parser.ValidateNodeAgainstSchema(schema, exValue, true)
+					}
+					if schema != nil && schema.Type != nil && !isArr && exValue != nil {
+						res, errs = parser.ValidateNodeAgainstSchema(schema, exValue, false)
 					}
 
 					// TODO: handle enums in here.
 
-					if res != nil {
+					if !res {
 
 						// extract all validation errors.
-						for _, resError := range res.Errors() {
+						for _, resError := range errs {
+
+							var buf strings.Builder
+							for i := range resError.SchemaValidationErrors {
+								buf.WriteString(resError.SchemaValidationErrors[i].Reason)
+								if i+1 < len(resError.SchemaValidationErrors) {
+									buf.WriteString("\n")
+								}
+							}
 
 							// TODO: Diagnose examples of arrays of enums.
 
-							z := model.BuildFunctionResultString(fmt.Sprintf("Example for property `%s` is not valid: `%s`. "+
-								"Value `%s` is not compatible",
-								pName, resError.Description(), resError.Value()))
+							z := model.BuildFunctionResultString(fmt.Sprintf("Example for property `%s` is not valid: `%s`",
+								pName, buf.String()))
 							z.StartNode = exKey
 							z.EndNode = exValue
 							z.Rule = context.Rule
@@ -337,22 +355,26 @@ func checkDefinitionForExample(componentNode *yaml.Node, compName string,
 		// don't start chasing polymorphic nodes. Converting the schema could end up in an endless loop.
 		if !utils.IsNodePolyMorphic(componentNode) {
 
-			schema, _ := parser.ConvertNodeDefinitionIntoSchema(componentNode)
+			schema, _ := parser.ConvertNodeIntoJSONSchema(componentNode, context.Index)
 
-			var res *gojsonschema.Result
-			var errorResults []gojsonschema.ResultError
+			var errorResults []*validationErrors.ValidationError
 			if topExValue != nil {
-				res, _ = parser.ValidateNodeAgainstSchema(schema, topExValue, false)
-			}
-			if res != nil && len(res.Errors()) > 0 {
-				errorResults = res.Errors()
+				_, errorResults = parser.ValidateNodeAgainstSchema(schema, topExValue, false)
 			}
 
 			// extract all validation errors.
 			for _, resError := range errorResults {
 
-				z := model.BuildFunctionResultString(fmt.Sprintf("Example for component `%s` is not valid: `%s`. "+
-					"Value `%s` is not compatible", compName, resError.Description(), resError.Value()))
+				var buf strings.Builder
+				for i := range resError.SchemaValidationErrors {
+					buf.WriteString(resError.SchemaValidationErrors[i].Reason)
+					if i+1 < len(resError.SchemaValidationErrors) {
+						buf.WriteString("\n")
+					}
+				}
+
+				z := model.BuildFunctionResultString(fmt.Sprintf("Example for property `%s` is not valid: `%s`",
+					compName, buf.String()))
 				z.StartNode = topExKey
 
 				if len(topExValue.Content) > 0 {
@@ -438,7 +460,7 @@ func analyzeExample(nameNodeValue string, mediaTypeNode *yaml.Node, basePath str
 		return results
 	}
 
-	var schema *parser.Schema
+	var schema *highBase.Schema
 
 	// look through multiple examples and evaluate them.
 	var exampleName string
@@ -460,43 +482,12 @@ func analyzeExample(nameNodeValue string, mediaTypeNode *yaml.Node, basePath str
 			if valueNode != nil {
 				// check if the example validates against the convertedSchema
 				// extract the convertedSchema
-				convertedSchema, err := parser.ConvertNodeDefinitionIntoSchema(sValue)
+				if sValue != nil {
+					convertedSchema, err := parser.ConvertNodeIntoJSONSchema(sValue, context.Index)
 
-				if err != nil {
-					z := model.BuildFunctionResultString(fmt.Sprintf("Example `%s` is not valid: `%s`",
-						exampleName, err.Error()))
-					z.StartNode = exampleNameNode
-					z.EndNode = valueNode
-					z.Path = nodePath
-					z.Rule = context.Rule
-					z.Range = buildRange(exampleNameNode, exampleNameNode)
-					modifyExampleResults(results, &z)
-					continue
-				}
-
-				if convertedSchema == nil {
-					z := model.BuildFunctionResultString(fmt.Sprintf("Example `%s` is not valid: `%s`",
-						exampleName, "no convertedSchema can be extracted, invalid convertedSchema"))
-					z.StartNode = exampleNameNode
-					z.EndNode = valueNode
-					z.Path = nodePath
-					z.Rule = context.Rule
-					z.Range = buildRange(exampleNameNode, exampleNameNode)
-					modifyExampleResults(results, &z)
-					continue
-				}
-
-				res, _ := parser.ValidateNodeAgainstSchema(convertedSchema, valueNode, false)
-				if res == nil {
-					continue
-				}
-
-				if !res.Valid() {
-					// extract all validation errors.
-					for _, resError := range res.Errors() {
-
+					if err != nil {
 						z := model.BuildFunctionResultString(fmt.Sprintf("Example `%s` is not valid: `%s`",
-							exampleName, resError.Description()))
+							exampleName, err.Error()))
 						z.StartNode = exampleNameNode
 						z.EndNode = valueNode
 						z.Path = nodePath
@@ -504,8 +495,44 @@ func analyzeExample(nameNodeValue string, mediaTypeNode *yaml.Node, basePath str
 						z.Range = buildRange(exampleNameNode, exampleNameNode)
 						modifyExampleResults(results, &z)
 					}
-				}
 
+					if convertedSchema == nil {
+						z := model.BuildFunctionResultString(fmt.Sprintf("Example `%s` is not valid: %s",
+							exampleName, "no `schema` can can be extracted for this example"))
+						z.StartNode = exampleNameNode
+						z.EndNode = valueNode
+						z.Path = nodePath
+						z.Rule = context.Rule
+						z.Range = buildRange(exampleNameNode, exampleNameNode)
+						modifyExampleResults(results, &z)
+
+					}
+
+					res, errs := parser.ValidateNodeAgainstSchema(convertedSchema, valueNode, false)
+
+					if !res {
+						// extract all validation errors.
+						for _, resError := range errs {
+
+							var buf strings.Builder
+							for i := range resError.SchemaValidationErrors {
+								buf.WriteString(resError.SchemaValidationErrors[i].Reason)
+								if i+1 < len(resError.SchemaValidationErrors) {
+									buf.WriteString("\n")
+								}
+							}
+
+							z := model.BuildFunctionResultString(fmt.Sprintf("Example `%s` is not valid: `%s`",
+								exampleName, buf.String()))
+							z.StartNode = exampleNameNode
+							z.EndNode = valueNode
+							z.Path = nodePath
+							z.Rule = context.Rule
+							z.Range = buildRange(exampleNameNode, exampleNameNode)
+							modifyExampleResults(results, &z)
+						}
+					}
+				}
 				// check if the example contains a summary
 				_, summaryNode := utils.FindKeyNodeTop("summary", multiExampleNode.Content)
 				if summaryNode == nil {
@@ -543,7 +570,7 @@ func analyzeExample(nameNodeValue string, mediaTypeNode *yaml.Node, basePath str
 		// extract the schema
 		var err error
 		if schema == nil {
-			schema, err = parser.ConvertNodeDefinitionIntoSchema(sValue)
+			schema, err = parser.ConvertNodeIntoJSONSchema(sValue, context.Index)
 			if err != nil {
 				z := model.BuildFunctionResultString(fmt.Sprintf("Example for `%s` is not valid: `%s`",
 					nameNodeValue, err.Error()))
@@ -565,10 +592,24 @@ func analyzeExample(nameNodeValue string, mediaTypeNode *yaml.Node, basePath str
 
 		res, validateError := parser.ValidateNodeAgainstSchema(schema, eValue, false)
 
+		var schemaErrors []*validationErrors.SchemaValidationFailure
+		for i := range validateError {
+			schemaErrors = append(schemaErrors, validateError[i].SchemaValidationErrors...)
+		}
+
 		if validateError != nil {
 
+			var buf strings.Builder
+
+			for i := range schemaErrors {
+				buf.WriteString(schemaErrors[i].Reason)
+				if i+1 < len(schemaErrors) {
+					buf.WriteString("\n")
+				}
+			}
+
 			z := model.BuildFunctionResultString(fmt.Sprintf("Example for `%s` is not valid: `%s`",
-				nameNodeValue, validateError.Error()))
+				nameNodeValue, buf.String()))
 			z.StartNode = eValue
 			if len(eValue.Content) > 0 {
 				z.EndNode = eValue.Content[len(eValue.Content)-1]
@@ -582,12 +623,12 @@ func analyzeExample(nameNodeValue string, mediaTypeNode *yaml.Node, basePath str
 			return results
 		}
 
-		if res != nil {
+		if !res {
 			// extract all validation errors.
-			for _, resError := range res.Errors() {
+			for _, resError := range schemaErrors {
 
 				z := model.BuildFunctionResultString(fmt.Sprintf("Example for `%s` is not valid: `%s`",
-					nameNodeValue, resError.Description()))
+					nameNodeValue, resError.Reason))
 				z.StartNode = eValue
 				if len(eValue.Content) > 0 {
 					z.EndNode = eValue.Content[len(eValue.Content)-1]
@@ -622,7 +663,7 @@ func analyzeExample(nameNodeValue string, mediaTypeNode *yaml.Node, basePath str
 	if ex {
 		if schema == nil && !utils.IsNodePolyMorphic(sValue) {
 			var err error
-			schema, err = parser.ConvertNodeDefinitionIntoSchema(sValue)
+			schema, err = parser.ConvertNodeIntoJSONSchema(sValue, context.Index)
 
 			if err != nil {
 				z := model.BuildFunctionResultString(err.Error())

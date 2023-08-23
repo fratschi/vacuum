@@ -4,6 +4,7 @@ import (
 	_ "embed" // embedding is not supported by golint,
 	"encoding/json"
 	"github.com/daveshanley/vacuum/model/reports"
+	"github.com/pb33f/libopenapi"
 	"github.com/pb33f/libopenapi/datamodel"
 	"github.com/pb33f/libopenapi/index"
 	"gopkg.in/yaml.v3"
@@ -24,6 +25,7 @@ const (
 	CategorySecurity     = "security"
 	CategoryTags         = "tags"
 	CategoryValidation   = "validation"
+	CategoryOWASP        = "OWASP"
 	CategoryAll          = "all"
 )
 
@@ -35,12 +37,13 @@ type RuleCategory struct {
 
 // RuleFunctionContext defines a RuleAction, Rule and Options for a RuleFunction being run.
 type RuleFunctionContext struct {
-	RuleAction *RuleAction         // A reference to the action defined configured by the rule
-	Rule       *Rule               // A reference to the Rule being used for the function
-	Given      interface{}         // Path/s being used by rule, multiple paths can be used
-	Options    interface{}         // Function options
-	Index      *index.SpecIndex    // A reference to the index created for the spec being parsed
-	SpecInfo   *datamodel.SpecInfo // A reference to all specification information for the spec being parsed.
+	RuleAction *RuleAction         `json:"ruleAction,omitempty" yaml:"ruleAction,omitempty"` // A reference to the action defined configured by the rule
+	Rule       *Rule               `json:"rule,omitempty" yaml:"rule,omitempty"`             // A reference to the Rule being used for the function
+	Given      interface{}         `json:"given,omitempty" yaml:"given,omitempty"`           // Path/s being used by rule, multiple paths can be used
+	Options    interface{}         `json:"options,omitempty" yaml:"options,omitempty"`       // Function options
+	Index      *index.SpecIndex    `json:"-" yaml:"-"`                                       // A reference to the index created for the spec being parsed
+	SpecInfo   *datamodel.SpecInfo `json:"specInfo,omitempty" yaml:"specInfo,omitempty"`     // A reference to all specification information for the spec being parsed.
+	Document   libopenapi.Document `json:"-" yaml:"-"`                                       // A reference to the document being parsed
 }
 
 // RuleFunctionResult describes a failure with linting after being run through a rule
@@ -54,15 +57,19 @@ type RuleFunctionResult struct {
 	StartNode    *yaml.Node    `json:"-" yaml:"-"`                       // Start of the violation
 	EndNode      *yaml.Node    `json:"-" yaml:"-"`                       // end of the violation
 	Timestamp    *time.Time    `json:"-" yaml:"-"`                       // When the result was created.
+
+	// ModelContext may or may nor be populated, depending on the rule used and the context of the rule. If it is
+	// populated, then this is a reference to the model that fired the rule. (not currently used yet)
+	ModelContext any `json:"-" yaml:"-"`
 }
 
 // RuleResultSet contains all the results found during a linting run, and all the methods required to
 // filter, sort and calculate counts.
 type RuleResultSet struct {
-	Results     []*RuleFunctionResult                   `json:"results" yaml:"results"`           // All the results!
-	WarnCount   int                                     `json:"warningCount" yaml:"warningCount"` // Total warnings
-	ErrorCount  int                                     `json:"errorCount" yaml:"errorCount"`     // Total errors
-	InfoCount   int                                     `json:"infoCount" yaml:"infoCount"`       // Total info
+	Results     []*RuleFunctionResult                   `json:"results,omitempty" yaml:"results,omitempty"` // All the results!
+	WarnCount   int                                     `json:"warningCount" yaml:"warningCount"`           // Total warnings
+	ErrorCount  int                                     `json:"errorCount" yaml:"errorCount"`               // Total errors
+	InfoCount   int                                     `json:"infoCount" yaml:"infoCount"`                 // Total info
 	categoryMap map[*RuleCategory][]*RuleFunctionResult `json:"-" yaml:"-"`
 }
 

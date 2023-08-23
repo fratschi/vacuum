@@ -42,7 +42,7 @@ func (prs PostResponseSuccess) RunRule(nodes []*yaml.Node, context model.RuleFun
 				found++
 			} else {
 				startNode = node
-				endNode = utils.FindLastChildNode(startNode)
+				endNode = utils.FindLastChildNodeWithLevel(startNode, 0)
 				if j+1 < len(nodes) {
 					endNode = nodes[j+1]
 				}

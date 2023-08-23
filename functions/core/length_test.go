@@ -67,6 +67,7 @@ paths:
 	rule := buildCoreTestRule(path, model.SeverityError, "length", "paths", ops)
 	ctx := buildCoreTestContext(model.CastToRuleAction(rule.Then), ops)
 	ctx.Given = path
+	ctx.Rule = &rule
 
 	le := Length{}
 	res := le.RunRule(nodes, ctx)
@@ -95,6 +96,7 @@ paths:
 	rule := buildCoreTestRule(path, model.SeverityError, "length", "paths", ops)
 	ctx := buildCoreTestContext(model.CastToRuleAction(rule.Then), ops)
 	ctx.Given = path
+	ctx.Rule = &rule
 
 	le := Length{}
 	res := le.RunRule(nodes, ctx)
@@ -121,6 +123,7 @@ tags:
 	rule := buildCoreTestRule(path, model.SeverityError, "length", "tags", ops)
 	ctx := buildCoreTestContext(model.CastToRuleAction(rule.Then), ops)
 	ctx.Given = path
+	ctx.Rule = &rule
 
 	le := Length{}
 	res := le.RunRule(nodes, ctx)
@@ -147,12 +150,13 @@ tags:
 	rule := buildCoreTestRule(path, model.SeverityError, "length", "tags", ops)
 	ctx := buildCoreTestContext(model.CastToRuleAction(rule.Then), ops)
 	ctx.Given = path
+	ctx.Rule = &rule
 
 	le := Length{}
 	res := le.RunRule(nodes, ctx)
 
 	assert.Len(t, res, 1)
-	assert.Equal(t, res[0].Message, "'tags' must not be longer/greater than '2'")
+	assert.Equal(t, "test rule: 'tags' must not be longer/greater than '2'", res[0].Message)
 }
 
 func TestLength_RunRule_CheckArrayOutOfBounds(t *testing.T) {
@@ -176,12 +180,13 @@ tags:
 	rule := buildCoreTestRule(path, model.SeverityError, "length", "tags", ops)
 	ctx := buildCoreTestContext(model.CastToRuleAction(rule.Then), ops)
 	ctx.Given = path
+	ctx.Rule = &rule
 
 	le := Length{}
 	res := le.RunRule(nodes, ctx)
 
 	assert.Len(t, res, 1)
-	assert.Equal(t, res[0].Message, "'tags' must not be longer/greater than '4'")
+	assert.Equal(t, "test rule: 'tags' must not be longer/greater than '4'", res[0].Message)
 }
 
 func TestLength_RunRule_CheckLengthOfStringValue(t *testing.T) {
@@ -204,6 +209,7 @@ tags:
 	rule := buildCoreTestRule(path, model.SeverityError, "length", "description", ops)
 	ctx := buildCoreTestContext(model.CastToRuleAction(rule.Then), ops)
 	ctx.Given = path
+	ctx.Rule = &rule
 
 	le := Length{}
 	res := le.RunRule(nodes, ctx)
@@ -232,6 +238,7 @@ tags:
 	rule := buildCoreTestRule(path, model.SeverityError, "length", "description", ops)
 	ctx := buildCoreTestContext(model.CastToRuleAction(rule.Then), ops)
 	ctx.Given = path
+	ctx.Rule = &rule
 
 	le := Length{}
 	res := le.RunRule(nodes, ctx)
@@ -262,6 +269,7 @@ tags:
 	rule := buildCoreTestRule(path, model.SeverityError, "length", "description", ops)
 	ctx := buildCoreTestContext(model.CastToRuleAction(rule.Then), ops)
 	ctx.Given = path
+	ctx.Rule = &rule
 
 	le := Length{}
 	res := le.RunRule(nodes, ctx)
@@ -346,6 +354,7 @@ tags:`
 	rule := buildCoreTestRule(path, model.SeverityError, "length", "description", ops)
 	ctx := buildCoreTestContext(model.CastToRuleAction(rule.Then), ops)
 	ctx.Given = path
+	ctx.Rule = &rule
 
 	le := Length{}
 	res := le.RunRule(nodes, ctx)

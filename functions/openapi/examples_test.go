@@ -55,7 +55,8 @@ components:
 
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
 	}
@@ -103,7 +104,8 @@ components:
 
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
 	}
@@ -159,7 +161,8 @@ components:
 	//nodes, _ := utils.FindNodes([]byte(yml), path)
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	def := Examples{}
 
 	ctx.SpecInfo = &datamodel.SpecInfo{
@@ -174,7 +177,7 @@ components:
 	resolver.Resolve()
 	res := def.RunRule([]*yaml.Node{&rootNode}, ctx)
 
-	assert.Len(t, res, 6)
+	assert.Len(t, res, 5)
 	assert.NotNil(t, res[0].Path)
 }
 
@@ -215,7 +218,8 @@ func TestExamples_RunRule_Fail_Inline_Schema_Multi_Examples(t *testing.T) {
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
@@ -225,7 +229,7 @@ func TestExamples_RunRule_Fail_Inline_Schema_Multi_Examples(t *testing.T) {
 
 	res := def.RunRule(nodes, ctx)
 
-	assert.Len(t, res, 4)
+	assert.Len(t, res, 3)
 	assert.NotNil(t, res[0].Path)
 }
 
@@ -262,7 +266,8 @@ func TestExamples_RunRule_Fail_Inline_Schema_Missing_Summary(t *testing.T) {
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
 	}
@@ -301,7 +306,8 @@ func TestExamples_RunRule_Fail_Single_Example_Not_An_Object(t *testing.T) {
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
 	}
@@ -310,7 +316,7 @@ func TestExamples_RunRule_Fail_Single_Example_Not_An_Object(t *testing.T) {
 	res := def.RunRule(nodes, ctx)
 
 	assert.Len(t, res, 1)
-	assert.Equal(t, "Example for `application/json` is not valid: `Invalid type. Expected: object, given: string`", res[0].Message)
+	assert.Equal(t, "Example for `application/json` is not valid: `expected object, but got string`", res[0].Message)
 	assert.NotNil(t, res[0].Path)
 }
 
@@ -341,7 +347,8 @@ func TestExamples_RunRule_Fail_Single_Example_Invalid_Object(t *testing.T) {
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
 	}
@@ -350,8 +357,7 @@ func TestExamples_RunRule_Fail_Single_Example_Invalid_Object(t *testing.T) {
 	res := def.RunRule(nodes, ctx)
 
 	assert.Len(t, res, 1)
-	assert.Equal(t, "Example for `application/json` is not valid: `Invalid type. Expected: "+
-		"integer, given: string`", res[0].Message)
+	assert.Equal(t, "Example for `application/json` is not valid: `expected integer, but got string`", res[0].Message)
 	assert.NotNil(t, res[0].Path)
 }
 
@@ -383,7 +389,8 @@ func TestExamples_RunRule_Fail_Single_Example_Invalid_Object_Response(t *testing
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	def := Examples{}
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
@@ -391,8 +398,7 @@ func TestExamples_RunRule_Fail_Single_Example_Invalid_Object_Response(t *testing
 	res := def.RunRule(nodes, ctx)
 
 	assert.Len(t, res, 1)
-	assert.Equal(t, "Example for `application/json` is not valid: `Invalid type. "+
-		"Expected: integer, given: string`", res[0].Message)
+	assert.Equal(t, "Example for `application/json` is not valid: `expected integer, but got string`", res[0].Message)
 	assert.NotNil(t, res[0].Path)
 }
 
@@ -460,7 +466,8 @@ func TestExamples_RunRule_Fail_Single_Example_Param_No_Example(t *testing.T) {
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
 	}
@@ -492,7 +499,8 @@ func TestExamples_RunRule_Fail_TopLevel_Param_No_Example(t *testing.T) {
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
 	}
@@ -527,7 +535,8 @@ func TestExamples_RunRule_Fail_Component_No_Example(t *testing.T) {
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
 	}
@@ -562,7 +571,8 @@ func TestExamples_RunRule_Fail_Component_Invalid_Inline_Example(t *testing.T) {
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
 	}
@@ -571,8 +581,7 @@ func TestExamples_RunRule_Fail_Component_Invalid_Inline_Example(t *testing.T) {
 	res := def.RunRule(nodes, ctx)
 
 	assert.Len(t, res, 1)
-	assert.Equal(t, "Example for property `id` is not valid: `Invalid type. Expected: integer, "+
-		"given: string`. Value `burgers` is not compatible", res[0].Message)
+	assert.Equal(t, "Example for property `id` is not valid: `expected integer, but got string`", res[0].Message)
 	assert.NotNil(t, res[0].Path)
 }
 
@@ -599,7 +608,8 @@ func TestExamples_RunRule_Fail_Component_Invalid_ObjectLevel_Example(t *testing.
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
 	}
@@ -608,8 +618,7 @@ func TestExamples_RunRule_Fail_Component_Invalid_ObjectLevel_Example(t *testing.
 	res := def.RunRule(nodes, ctx)
 
 	assert.Len(t, res, 1)
-	assert.Equal(t, "Example for component `Lemons` is not valid: `Invalid type. Expected: integer, "+
-		"given: string`. Value `cake` is not compatible", res[0].Message)
+	assert.Equal(t, "Example for property `Lemons` is not valid: `expected integer, but got string`", res[0].Message)
 	assert.NotNil(t, res[0].Path)
 }
 
@@ -636,7 +645,8 @@ func TestExamples_RunRule_Fail_Parameters_Invalid_ObjectLevel_Example(t *testing
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
 	}
@@ -645,8 +655,7 @@ func TestExamples_RunRule_Fail_Parameters_Invalid_ObjectLevel_Example(t *testing
 	res := def.RunRule(nodes, ctx)
 
 	assert.Len(t, res, 1)
-	assert.Equal(t, "Example for component `Lemons` is not valid: `Invalid type. Expected: integer, "+
-		"given: string`. Value `cake` is not compatible", res[0].Message)
+	assert.Equal(t, "Example for property `Lemons` is not valid: `expected integer, but got string`", res[0].Message)
 	assert.NotNil(t, res[0].Path)
 
 }
@@ -686,7 +695,8 @@ func TestExamples_RunRule_Fail_ExternalAndValue(t *testing.T) {
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 	rule := buildOpenApiTestRuleAction(path, "examples", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	ctx.SpecInfo = &datamodel.SpecInfo{
 		SpecFormat: model.OAS3,
 	}

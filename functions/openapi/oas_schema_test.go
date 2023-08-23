@@ -2,6 +2,7 @@ package openapi
 
 import (
 	"github.com/daveshanley/vacuum/model"
+	"github.com/pb33f/libopenapi"
 	"github.com/pb33f/libopenapi/datamodel"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/stretchr/testify/assert"
@@ -31,13 +32,17 @@ wiff: waff`
 
 	rule := buildOpenApiTestRuleAction(path, "oas2_schema", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(specInfo.RootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(specInfo.RootNode, config)
 	ctx.SpecInfo = specInfo
+
+	// add doc to context
+	ctx.Document, _ = libopenapi.NewDocument([]byte(yml))
 
 	def := OASSchema{}
 	res := def.RunRule([]*yaml.Node{specInfo.RootNode}, ctx)
 
-	assert.Len(t, res, 4)
+	assert.Len(t, res, 3)
 }
 
 func TestOAS2Schema_RunRule_JSONSource_Fail_SpecBorked(t *testing.T) {
@@ -50,8 +55,12 @@ func TestOAS2Schema_RunRule_JSONSource_Fail_SpecBorked(t *testing.T) {
 
 	rule := buildOpenApiTestRuleAction(path, "oas2_schema", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(specInfo.RootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(specInfo.RootNode, config)
 	ctx.SpecInfo = specInfo
+
+	// add doc to context
+	ctx.Document, _ = libopenapi.NewDocument([]byte(yml))
 
 	def := OASSchema{}
 	res := def.RunRule([]*yaml.Node{specInfo.RootNode}, ctx)
@@ -69,13 +78,17 @@ func TestOAS2Schema_RunRule_JSONSource_Fail(t *testing.T) {
 
 	rule := buildOpenApiTestRuleAction(path, "oas2_schema", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(specInfo.RootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(specInfo.RootNode, config)
 	ctx.SpecInfo = specInfo
+
+	// add doc to context
+	ctx.Document, _ = libopenapi.NewDocument([]byte(yml))
 
 	def := OASSchema{}
 	res := def.RunRule([]*yaml.Node{specInfo.RootNode}, ctx)
 
-	assert.Len(t, res, 3)
+	assert.Len(t, res, 2)
 }
 
 func TestOAS2Schema_RunRule_JSONSource_Fail_Unknown(t *testing.T) {
@@ -88,8 +101,12 @@ func TestOAS2Schema_RunRule_JSONSource_Fail_Unknown(t *testing.T) {
 
 	rule := buildOpenApiTestRuleAction(path, "oas2_schema", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(specInfo.RootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(specInfo.RootNode, config)
 	ctx.SpecInfo = specInfo
+
+	// add doc to context
+	ctx.Document, _ = libopenapi.NewDocument([]byte(yml))
 
 	def := OASSchema{}
 	res := def.RunRule([]*yaml.Node{specInfo.RootNode}, ctx)
@@ -122,8 +139,12 @@ paths:
 
 	rule := buildOpenApiTestRuleAction(path, "oas2_schema", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(specInfo.RootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(specInfo.RootNode, config)
 	ctx.SpecInfo = specInfo
+
+	// add doc to context
+	ctx.Document, _ = libopenapi.NewDocument([]byte(yml))
 
 	def := OASSchema{}
 	res := def.RunRule([]*yaml.Node{specInfo.RootNode}, ctx)
@@ -156,8 +177,12 @@ paths:
 
 	rule := buildOpenApiTestRuleAction(path, "oas3_schema", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(specInfo.RootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(specInfo.RootNode, config)
 	ctx.SpecInfo = specInfo
+
+	// add doc to context
+	ctx.Document, _ = libopenapi.NewDocument([]byte(yml))
 
 	def := OASSchema{}
 	res := def.RunRule([]*yaml.Node{specInfo.RootNode}, ctx)
@@ -175,8 +200,12 @@ func TestOAS3Schema_RunRule_Fail(t *testing.T) {
 
 	rule := buildOpenApiTestRuleAction(path, "oas3_schema", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(specInfo.RootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(specInfo.RootNode, config)
 	ctx.SpecInfo = specInfo
+
+	// add doc to context
+	ctx.Document, _ = libopenapi.NewDocument([]byte(yml))
 
 	def := OASSchema{}
 	res := def.RunRule([]*yaml.Node{specInfo.RootNode}, ctx)
@@ -209,8 +238,12 @@ paths:
 
 	rule := buildOpenApiTestRuleAction(path, "oas2_schema", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(specInfo.RootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(specInfo.RootNode, config)
 	ctx.SpecInfo = specInfo
+
+	// add doc to context
+	ctx.Document, _ = libopenapi.NewDocument([]byte(yml))
 
 	def := OASSchema{}
 	res := def.RunRule([]*yaml.Node{specInfo.RootNode}, ctx)

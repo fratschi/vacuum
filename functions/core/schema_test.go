@@ -2,9 +2,12 @@ package core
 
 import (
 	"github.com/daveshanley/vacuum/model"
-	"github.com/daveshanley/vacuum/parser"
+	highBase "github.com/pb33f/libopenapi/datamodel/high/base"
+	"github.com/pb33f/libopenapi/datamodel/low"
+	lowBase "github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/utils"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 	"testing"
 )
 
@@ -33,15 +36,19 @@ func TestOpenAPISchema_DuplicateEntryInEnum(t *testing.T) {
 	path := "$..[?(@.enum)]"
 
 	nodes, _ := utils.FindNodes([]byte(yml), path)
-
 	opts := make(map[string]interface{})
-	opts["schema"] = parser.Schema{
-		Type: &utils.ArrayLabel,
-		Items: &parser.Schema{
-			Type: &utils.StringLabel,
-		},
-		UniqueItems: true,
-	}
+
+	validate := `type: array
+items:
+  type: string
+uniqueItems: true`
+
+	var n yaml.Node
+	_ = yaml.Unmarshal([]byte(validate), &n)
+
+	schema := testGenerateJSONSchema(n.Content[0])
+
+	opts["schema"] = schema
 
 	rule := model.Rule{
 		Given: path,
@@ -64,27 +71,27 @@ func TestOpenAPISchema_DuplicateEntryInEnum(t *testing.T) {
 	res := def.RunRule(nodes, ctx)
 
 	assert.Len(t, res, 1)
-	assert.Equal(t, "Enum values must not have duplicate entry: array items[0,2] must be unique", res[0].Message)
+	assert.Equal(t, "Enum values must not have duplicate entry: items at index 0 and 2 are equal", res[0].Message)
 
 }
 
 func TestOpenAPISchema_InvalidSchemaInteger(t *testing.T) {
 
-	yml := `smell:
-  stink: not a number`
+	yml := `smell: not a number`
 
 	path := "$"
 
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 
-	props := make(map[string]*parser.Schema)
-	props["stink"] = &parser.Schema{Type: &utils.IntegerLabel}
+	validate := `type: integer`
+
+	var n yaml.Node
+	_ = yaml.Unmarshal([]byte(validate), &n)
+
+	schema := testGenerateJSONSchema(n.Content[0])
 
 	opts := make(map[string]interface{})
-	opts["schema"] = parser.Schema{
-		Type:       &utils.ObjectLabel,
-		Properties: props,
-	}
+	opts["schema"] = schema
 
 	rule := model.Rule{
 		Given: path,
@@ -107,8 +114,16 @@ func TestOpenAPISchema_InvalidSchemaInteger(t *testing.T) {
 	res := def.RunRule(nodes, ctx)
 
 	assert.Len(t, res, 1)
-	assert.Equal(t, "schema must be valid: Invalid type. Expected: integer, given: string", res[0].Message)
+	assert.Equal(t, "schema must be valid: expected integer, but got string", res[0].Message)
 
+}
+
+func testGenerateJSONSchema(node *yaml.Node) *highBase.Schema {
+	sch := lowBase.Schema{}
+	_ = low.BuildModel(node, &sch)
+	_ = sch.Build(node, nil)
+	highSch := highBase.NewSchema(&sch)
+	return highSch
 }
 
 func TestOpenAPISchema_InvalidSchemaBoolean(t *testing.T) {
@@ -120,14 +135,24 @@ func TestOpenAPISchema_InvalidSchemaBoolean(t *testing.T) {
 
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 
-	props := make(map[string]*parser.Schema)
-	props["stank"] = &parser.Schema{Type: &utils.BooleanLabel}
+	props := make(map[string]*highBase.Schema)
+	props["stank"] = &highBase.Schema{
+		Type: []string{utils.BooleanLabel},
+	}
 
 	opts := make(map[string]interface{})
-	opts["schema"] = parser.Schema{
-		Type:       &utils.ObjectLabel,
-		Properties: props,
-	}
+
+	validate := `type: object
+properties:
+  stank:
+    type: boolean`
+
+	var n yaml.Node
+	_ = yaml.Unmarshal([]byte(validate), &n)
+
+	schema := testGenerateJSONSchema(n.Content[0])
+
+	opts["schema"] = schema
 
 	rule := model.Rule{
 		Given: path,
@@ -150,7 +175,7 @@ func TestOpenAPISchema_InvalidSchemaBoolean(t *testing.T) {
 	res := def.RunRule(nodes, ctx)
 
 	assert.Len(t, res, 1)
-	assert.Equal(t, "schema must be valid: Invalid type. Expected: boolean, given: string", res[0].Message)
+	assert.Equal(t, "schema must be valid: expected boolean, but got string", res[0].Message)
 
 }
 
@@ -163,14 +188,24 @@ func TestOpenAPISchema_MissingFieldForceValidation(t *testing.T) {
 
 	nodes, _ := utils.FindNodes([]byte(yml), path)
 
-	props := make(map[string]*parser.Schema)
-	props["stank"] = &parser.Schema{Type: &utils.BooleanLabel}
+	props := make(map[string]*highBase.Schema)
+	props["stank"] = &highBase.Schema{
+		Type: []string{utils.BooleanLabel},
+	}
 
 	opts := make(map[string]interface{})
-	opts["schema"] = parser.Schema{
-		Type:       &utils.ObjectLabel,
-		Properties: props,
-	}
+
+	validate := `type: object
+properties:
+  stank:
+    type: boolean`
+
+	var n yaml.Node
+	_ = yaml.Unmarshal([]byte(validate), &n)
+
+	schema := testGenerateJSONSchema(n.Content[0])
+
+	opts["schema"] = schema
 	opts["forceValidation"] = true
 
 	rule := model.Rule{

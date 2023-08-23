@@ -2,12 +2,14 @@ package rulesets
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/daveshanley/vacuum/model"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 var totalRules = 53
+var totalOwaspRules = 25
 var totalRecommendedRules = 42
 
 func TestBuildDefaultRuleSets(t *testing.T) {
@@ -351,4 +353,36 @@ rules:
 	assert.Len(t, repl.Rules, 1)
 	assert.Equal(t, "schemas", repl.Rules["check-title-is-exactly-this"].RuleCategory.Id)
 
+}
+
+func TestRuleSetsModel_GenerateRuleSetFromConfig_Oas_SpectralOwasp(t *testing.T) {
+
+	yaml := `extends: [[spectral:oas, all], [spectral:owasp, all]]`
+
+	def := BuildDefaultRuleSets()
+	rs, _ := CreateRuleSetFromData([]byte(yaml))
+	repl := def.GenerateRuleSetFromSuppliedRuleSet(rs)
+	assert.Len(t, repl.Rules, totalOwaspRules+totalRules)
+
+}
+
+func TestRuleSetsModel_GenerateRuleSetFromConfig_Oas_VacuumOwasp(t *testing.T) {
+
+	yaml := `extends: [[spectral:oas, all], [vacuum:owasp, all]]`
+
+	def := BuildDefaultRuleSets()
+	rs, _ := CreateRuleSetFromData([]byte(yaml))
+	repl := def.GenerateRuleSetFromSuppliedRuleSet(rs)
+	assert.Len(t, repl.Rules, totalOwaspRules+totalRules)
+
+}
+
+func TestGetAllBuiltInRules(t *testing.T) {
+	assert.Len(t, GetAllBuiltInRules(), totalRules)
+}
+
+func TestCreateRuleSetFromRuleMap(t *testing.T) {
+	rules := GetAllBuiltInRules()
+	rs := CreateRuleSetFromRuleMap(rules)
+	assert.Len(t, rs.Rules, totalRules)
 }

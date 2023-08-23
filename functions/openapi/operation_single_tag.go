@@ -42,7 +42,7 @@ func (ost OperationSingleTag) RunRule(nodes []*yaml.Node, context model.RuleFunc
 			if len(tags) > 1 {
 
 				tagsNode, _ := utils.FindKeyNode("tags", methodNode.Node.Content)
-				lastNode := utils.FindLastChildNode(tagsNode)
+				lastNode := utils.FindLastChildNodeWithLevel(tagsNode, 0)
 
 				results = append(results, model.RuleFunctionResult{
 					Message: fmt.Sprintf("the `%s` operation at path `%s` contains more "+

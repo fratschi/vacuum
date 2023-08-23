@@ -135,6 +135,7 @@ func testhelp_generateReport() *VacuumReport {
 	vr.SpecInfo = si
 
 	r1 := model.RuleFunctionResult{Rule: &model.Rule{
+		Id:           "one",
 		Description:  "one",
 		Severity:     model.SeverityError,
 		RuleCategory: model.RuleCategories[model.CategoryInfo],

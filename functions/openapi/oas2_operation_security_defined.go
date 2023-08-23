@@ -39,7 +39,7 @@ func (sd OAS2OperationSecurityDefined) RunRule(nodes []*yaml.Node, context model
 		for method, methodNode := range methodMap {
 
 			_, securityNode := utils.FindKeyNode("security", methodNode.Node.Content)
-			lastNode := utils.FindLastChildNode(methodNode.Node)
+			lastNode := utils.FindLastChildNodeWithLevel(methodNode.Node, 0)
 
 			if securityNode != nil {
 
@@ -55,7 +55,7 @@ func (sd OAS2OperationSecurityDefined) RunRule(nodes []*yaml.Node, context model
 	rootSecurity := context.Index.GetRootSecurityNode()
 	if rootSecurity != nil {
 		basePath := "$"
-		lastNode := utils.FindLastChildNode(rootSecurity)
+		lastNode := utils.FindLastChildNodeWithLevel(rootSecurity, 0)
 
 		results = sd.checkSecurityNode(rootSecurity, securityDefinitions, results,
 			basePath, rootSecurity, lastNode, context)

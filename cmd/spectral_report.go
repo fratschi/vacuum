@@ -43,6 +43,8 @@ func GetSpectralReportCommand() *cobra.Command {
 			stdIn, _ := cmd.Flags().GetBool("stdin")
 			stdOut, _ := cmd.Flags().GetBool("stdout")
 			noStyleFlag, _ := cmd.Flags().GetBool("no-style")
+			baseFlag, _ := cmd.Flags().GetString("base")
+			skipCheckFlag, _ := cmd.Flags().GetBool("skip-check")
 
 			// disable color and styling, for CI/CD use.
 			// https://github.com/daveshanley/vacuum/issues/234
@@ -129,10 +131,12 @@ func GetSpectralReportCommand() *cobra.Command {
 			}
 
 			ruleset := motor.ApplyRulesToRuleSet(&motor.RuleSetExecution{
-				RuleSet:         selectedRS,
-				Spec:            specBytes,
-				CustomFunctions: customFunctions,
-				SilenceLogs:     true,
+				RuleSet:           selectedRS,
+				Spec:              specBytes,
+				CustomFunctions:   customFunctions,
+				SilenceLogs:       true,
+				Base:              baseFlag,
+				SkipDocumentCheck: skipCheckFlag,
 			})
 
 			resultSet := model.NewRuleResultSet(ruleset.Results)

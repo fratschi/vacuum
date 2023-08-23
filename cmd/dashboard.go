@@ -14,6 +14,7 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+	"net/url"
 	"time"
 )
 
@@ -39,6 +40,8 @@ func GetDashboardCommand() *cobra.Command {
 				pterm.Println()
 				return errors.New(errText)
 			}
+			baseFlag, _ := cmd.Flags().GetString("base")
+			skipCheckFlag, _ := cmd.Flags().GetBool("skip-check")
 
 			var err error
 			vacuumReport, specBytes, _ := vacuum_report.BuildVacuumReportFromFile(args[0])
@@ -59,7 +62,7 @@ func GetDashboardCommand() *cobra.Command {
 				customFunctions, _ := LoadCustomFunctions(functionsFlag)
 
 				rulesetFlag, _ := cmd.Flags().GetString("ruleset")
-				resultSet, ruleset, err = BuildResults(rulesetFlag, specBytes, customFunctions)
+				resultSet, ruleset, err = BuildResultsWithDocCheckSkip(rulesetFlag, specBytes, customFunctions, baseFlag, skipCheckFlag)
 				if err != nil {
 					pterm.Error.Printf("Failed to render dashboard: %v\n\n", err)
 					return err
@@ -81,7 +84,22 @@ func GetDashboardCommand() *cobra.Command {
 					pterm.Println()
 					return err
 				}
-				specIndex = index.NewSpecIndex(&rootNode)
+
+				config := index.CreateClosedAPIIndexConfig()
+				if baseFlag != "" {
+					u, e := url.Parse(baseFlag)
+					if e == nil && u.Scheme != "" && u.Host != "" {
+						config.BaseURL = u
+						config.BasePath = ""
+					} else {
+						config.BasePath = baseFlag
+					}
+					config.AllowFileLookup = true
+					config.AllowRemoteLookup = true
+				}
+
+				specIndex = index.NewSpecIndexWithConfig(&rootNode, config)
+
 				specInfo = vacuumReport.SpecInfo
 				specInfo.Generated = vacuumReport.Generated
 			}

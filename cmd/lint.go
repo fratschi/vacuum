@@ -22,7 +22,7 @@ func GetLintCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		SilenceErrors: true,
 		SilenceUsage:  true,
-		Use:           "lint",
+		Use:           "lint <your-openapi-file.yaml>",
 		Short:         "Lint an OpenAPI specification",
 		Long:          `Lint an OpenAPI specification, the output of the response will be in the terminal`,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -43,6 +43,8 @@ func GetLintCommand() *cobra.Command {
 			functionsFlag, _ := cmd.Flags().GetString("functions")
 			failSeverityFlag, _ := cmd.Flags().GetString("fail-severity")
 			noStyleFlag, _ := cmd.Flags().GetBool("no-style")
+			baseFlag, _ := cmd.Flags().GetString("base")
+			skipCheckFlag, _ := cmd.Flags().GetBool("skip-check")
 
 			// disable color and styling, for CI/CD use.
 			// https://github.com/daveshanley/vacuum/issues/234
@@ -103,9 +105,11 @@ func GetLintCommand() *cobra.Command {
 			pterm.Info.Printf("Linting against %d rules: %s\n", len(selectedRS.Rules), selectedRS.DocumentationURI)
 			start := time.Now()
 			result := motor.ApplyRulesToRuleSet(&motor.RuleSetExecution{
-				RuleSet:         selectedRS,
-				Spec:            specBytes,
-				CustomFunctions: customFunctions,
+				RuleSet:           selectedRS,
+				Spec:              specBytes,
+				CustomFunctions:   customFunctions,
+				Base:              baseFlag,
+				SkipDocumentCheck: skipCheckFlag,
 			})
 
 			results := result.Results
@@ -157,6 +161,8 @@ func GetLintCommand() *cobra.Command {
 					cats = append(cats, model.RuleCategories[model.CategoryOperations])
 				case model.CategoryTags:
 					cats = append(cats, model.RuleCategories[model.CategoryTags])
+				case model.CategoryOWASP:
+					cats = append(cats, model.RuleCategories[model.CategoryOWASP])
 				default:
 					cats = model.RuleCategoriesOrdered
 				}
@@ -229,7 +235,7 @@ func processResults(results []*model.RuleFunctionResult, specData []string, snip
 	// we just render the entire table, all rows.
 	var tableData [][]string
 	if !snippets {
-		tableData = [][]string{{"Line / Column", "Severity", "Message", "Path"}}
+		tableData = [][]string{{"Line / Column", "Severity", "Message", "Rule", "Path"}}
 	}
 	for i, r := range results {
 
@@ -239,7 +245,7 @@ func processResults(results []*model.RuleFunctionResult, specData []string, snip
 			break
 		}
 		if snippets {
-			tableData = [][]string{{"Line / Column", "Severity", "Message", "Path"}}
+			tableData = [][]string{{"Line / Column", "Severity", "Message", "Rule", "Path"}}
 		}
 		startLine := 0
 		startCol := 0
@@ -256,8 +262,8 @@ func processResults(results []*model.RuleFunctionResult, specData []string, snip
 			p = fmt.Sprintf("%s...", r.Path[:60])
 		}
 
-		if len(r.Message) > 100 {
-			m = fmt.Sprintf("%s...", r.Message[:100])
+		if len(r.Message) > 180 {
+			m = fmt.Sprintf("%s...", r.Message[:180])
 		}
 
 		sev := "nope"
@@ -278,7 +284,7 @@ func processResults(results []*model.RuleFunctionResult, specData []string, snip
 			continue // only show errors
 		}
 
-		tableData = append(tableData, []string{start, sev, m, p})
+		tableData = append(tableData, []string{start, sev, m, r.Rule.Id, p})
 
 		if snippets && !silent {
 			_ = pterm.DefaultTable.WithHasHeader().WithData(tableData).Render()

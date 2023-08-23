@@ -35,23 +35,24 @@ func TestConvertNode_Simple(t *testing.T) {
 	mErr := yaml.Unmarshal([]byte(yml), &node)
 	assert.NoError(t, mErr)
 
-	index := index.NewSpecIndex(&node)
+	config := index.CreateOpenAPIIndexConfig()
+	idx := index.NewSpecIndexWithConfig(&node, config)
 
-	resolver := resolver.NewResolver(index)
+	resolver := resolver.NewResolver(idx)
 	resolver.Resolve()
 
 	p, _ := yamlpath.NewPath("$.components.schemas.Citrus")
 	r, _ := p.Find(&node)
 
-	schema, err := ConvertNodeDefinitionIntoSchema(r[0])
+	schema, err := ConvertNodeIntoJSONSchema(r[0], idx)
 	assert.NoError(t, err)
 	assert.NotNil(t, schema)
 	assert.Len(t, schema.Properties, 3)
 
 	// now check the schema is valid
 	res, e := ValidateNodeAgainstSchema(schema, r[0], false)
-	assert.NoError(t, e)
-	assert.Equal(t, true, res.Valid())
+	assert.Nil(t, e)
+	assert.True(t, res)
 }
 
 func TestValidateExample_AllInvalid(t *testing.T) {
@@ -89,17 +90,18 @@ func TestValidateExample_AllInvalid(t *testing.T) {
 	mErr := yaml.Unmarshal([]byte(yml), &node)
 	assert.NoError(t, mErr)
 
-	index := index.NewSpecIndex(&node)
+	config := index.CreateOpenAPIIndexConfig()
+	idx := index.NewSpecIndexWithConfig(&node, config)
 
-	resolver := resolver.NewResolver(index)
-	resolver.Resolve()
+	rslvr := resolver.NewResolver(idx)
+	rslvr.Resolve()
 
 	p, _ := yamlpath.NewPath("$.components.schemas.Savory")
 	r, _ := p.Find(&node)
 
-	schema, _ := ConvertNodeDefinitionIntoSchema(r[0])
+	schema, _ := ConvertNodeIntoJSONSchema(r[0], idx)
 
 	results := ValidateExample(schema)
-	assert.Len(t, results, 5)
+	assert.Len(t, results, 6)
 
 }

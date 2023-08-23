@@ -43,6 +43,8 @@ func GetHTMLReportCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			noStyleFlag, _ := cmd.Flags().GetBool("no-style")
+			baseFlag, _ := cmd.Flags().GetString("base")
+			skipCheckFlag, _ := cmd.Flags().GetBool("skip-check")
 
 			// disable color and styling, for CI/CD use.
 			// https://github.com/daveshanley/vacuum/issues/234
@@ -91,7 +93,7 @@ func GetHTMLReportCommand() *cobra.Command {
 				customFunctions, _ := LoadCustomFunctions(functionsFlag)
 
 				rulesetFlag, _ := cmd.Flags().GetString("ruleset")
-				resultSet, ruleset, err = BuildResults(rulesetFlag, specBytes, customFunctions)
+				resultSet, ruleset, err = BuildResultsWithDocCheckSkip(rulesetFlag, specBytes, customFunctions, baseFlag, skipCheckFlag)
 				if err != nil {
 					pterm.Error.Printf("Failed to generate report: %v\n\n", err)
 					return err

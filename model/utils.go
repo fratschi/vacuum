@@ -14,12 +14,6 @@ const (
 	OAS31 = "oas3_1"
 )
 
-//go:embed schemas/oas3-schema.json
-var OpenAPI3SchemaData string
-
-//go:embed schemas/swagger2-schema.json
-var OpenAPI2SchemaData string
-
 var OAS3_1Format = []string{OAS31}
 var OAS3Format = []string{OAS3}
 var OAS3AllFormat = []string{OAS3, OAS31}
@@ -27,9 +21,17 @@ var OAS2Format = []string{OAS2}
 var AllFormats = []string{OAS3, OAS31, OAS2}
 
 // BuildFunctionResult will create a RuleFunctionResult from a key, message and value.
+// Deprecated: use BuildFunctionResultWithDescription instead.
 func BuildFunctionResult(key, message string, value interface{}) RuleFunctionResult {
 	return RuleFunctionResult{
 		Message: fmt.Sprintf("'%s' %s '%v'", key, message, value),
+	}
+}
+
+// BuildFunctionResultWithDescription will create a RuleFunctionResult from a description, key, message and value.
+func BuildFunctionResultWithDescription(desc, key, message string, value interface{}) RuleFunctionResult {
+	return RuleFunctionResult{
+		Message: fmt.Sprintf("%s: '%s' %s '%v'", desc, key, message, value),
 	}
 }
 

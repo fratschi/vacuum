@@ -94,7 +94,7 @@ func (sr SuccessResponse) RunRule(nodes []*yaml.Node, context model.RuleFunction
 								name = "undefined operation (no operationId)"
 							}
 
-							endNode := utils.FindLastChildNode(valNode)
+							endNode := utils.FindLastChildNodeWithLevel(valNode, 0)
 							if endNode == nil && j+1 < len(operationNode.Content) {
 								endNode = operationNode.Content[j+1]
 							}

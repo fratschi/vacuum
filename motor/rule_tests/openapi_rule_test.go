@@ -55,7 +55,7 @@ paths:
       parameters:
       - in: path
         name: hurry
-      - in: query
+      - in: path
         name: hurry  
       responses:
         "500":
@@ -72,12 +72,11 @@ paths:
 	rules := rs.GenerateOpenAPIDefaultRuleSet()
 	lintExecution := motor.ApplyRulesToRuleSet(&motor.RuleSetExecution{RuleSet: rules, Spec: []byte(badDoc)})
 	assert.Len(t, lintExecution.Errors, 0)
-	assert.Len(t, lintExecution.Results, 85)
+	assert.Len(t, lintExecution.Results, 69)
 
 	for n := 0; n < len(lintExecution.Results); n++ {
 		assert.NotNil(t, lintExecution.Results[n].Path)
 		assert.NotNil(t, lintExecution.Results[n].StartNode)
 		assert.NotNil(t, lintExecution.Results[n].EndNode)
 	}
-
 }

@@ -4,11 +4,13 @@
 package functions
 
 import (
+	"sync"
+
 	"github.com/daveshanley/vacuum/functions/core"
 	openapi_functions "github.com/daveshanley/vacuum/functions/openapi"
+	"github.com/daveshanley/vacuum/functions/owasp"
 	"github.com/daveshanley/vacuum/model"
 	"github.com/daveshanley/vacuum/plugin"
-	"sync"
 )
 
 type customFunction struct {
@@ -76,6 +78,7 @@ func MapBuiltinFunctions() Functions {
 		funcs["oasSchema"] = core.Schema{} // can't see a reason to duplicate this yet.
 		funcs["oasDescriptions"] = openapi_functions.OperationDescription{}
 		funcs["oasDescriptionDuplication"] = openapi_functions.DescriptionDuplication{}
+		funcs["oasComponentDescriptions"] = openapi_functions.ComponentDescription{}
 		funcs["oasOperationTags"] = openapi_functions.OperationTags{}
 		funcs["oasOpFormDataConsumeCheck"] = openapi_functions.FormDataConsumeCheck{}
 		funcs["oasDiscriminator"] = openapi_functions.OAS2Discriminator{}
@@ -91,6 +94,11 @@ func MapBuiltinFunctions() Functions {
 		funcs["noVerbsInPath"] = openapi_functions.VerbsInPaths{}
 		funcs["pathsKebabCase"] = openapi_functions.PathsKebabCase{}
 		funcs["oasOpErrorResponse"] = openapi_functions.Operation4xResponse{}
+
+		// add owasp functions used by the owasp rules
+		funcs["owaspHeaderDefinition"] = owasp.HeaderDefinition{}
+		funcs["owaspDefineErrorDefinition"] = owasp.DefineErrorDefinition{}
+		funcs["owaspCheckSecurity"] = owasp.CheckSecurity{}
 
 	})
 

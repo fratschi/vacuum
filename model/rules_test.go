@@ -1,12 +1,14 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/santhosh-tekuri/jsonschema/v5"
 	"github.com/stretchr/testify/assert"
-	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
 	"os"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -18,13 +20,15 @@ func TestRuleSchema(t *testing.T) {
 	goodRules, err := os.ReadFile("test_files/rules.json")
 	assert.NoError(t, err)
 
-	schemaLoader := gojsonschema.NewStringLoader(string(schemaMain))
-	ruleLoader := gojsonschema.NewStringLoader(string(goodRules))
-	result, err := gojsonschema.Validate(schemaLoader, ruleLoader)
+	var rules map[string]interface{}
+	_ = json.Unmarshal(goodRules, &rules)
 
+	compiler := jsonschema.NewCompiler()
+	_ = compiler.AddResource("schema.json", strings.NewReader(string(schemaMain)))
+	jsch, _ := compiler.Compile("schema.json")
+
+	err = jsch.Validate(rules)
 	assert.NoError(t, err)
-	assert.True(t, result.Valid())
-	assert.Len(t, result.Errors(), 0)
 
 }
 

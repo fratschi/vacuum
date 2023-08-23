@@ -39,7 +39,7 @@ func (as APIServers) RunRule(nodes []*yaml.Node, context model.RuleFunctionConte
 		results = append(results, model.RuleFunctionResult{
 			Message:   "No servers defined for the specification",
 			StartNode: context.Index.GetRootNode(),
-			EndNode:   utils.FindLastChildNode(context.Index.GetRootNode()),
+			EndNode:   utils.FindLastChildNodeWithLevel(context.Index.GetRootNode(), 0),
 			Path:      "$.servers",
 			Rule:      context.Rule,
 		})
@@ -63,7 +63,7 @@ func (as APIServers) RunRule(nodes []*yaml.Node, context model.RuleFunctionConte
 			results = append(results, model.RuleFunctionResult{
 				Message:   "Server definition is missing a URL",
 				StartNode: serverRef.Node,
-				EndNode:   utils.FindLastChildNode(serverRef.Node),
+				EndNode:   utils.FindLastChildNodeWithLevel(serverRef.Node, 0),
 				Path:      fmt.Sprintf("$.servers[%d]", i),
 				Rule:      context.Rule,
 			})

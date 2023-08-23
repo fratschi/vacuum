@@ -133,10 +133,24 @@ func (uc UnusedComponent) RunRule(nodes []*yaml.Node, context model.RuleFunction
 		results = append(results, model.RuleFunctionResult{
 			Message:   fmt.Sprintf("`%s` is potentially unused or has been orphaned", key),
 			StartNode: &rolledBack,
-			EndNode:   utils.FindLastChildNode(ref.Node),
+			EndNode:   utils.FindLastChildNodeWithLevel(ref.Node, 0),
 			Path:      path,
 			Rule:      context.Rule,
 		})
+	}
+
+	// Check for reverse references. This is where a component is referenced, but it does not exist.
+	refErrors := context.Index.GetReferenceIndexErrors()
+	for i := range refErrors {
+		if rErr, ok := refErrors[i].(*index.IndexingError); ok {
+			results = append(results, model.RuleFunctionResult{
+				Message:   rErr.Err.Error(),
+				StartNode: rErr.Node,
+				EndNode:   rErr.Node,
+				Path:      rErr.Path,
+				Rule:      context.Rule,
+			})
+		}
 	}
 
 	return results

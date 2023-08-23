@@ -5,9 +5,14 @@ package core
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/daveshanley/vacuum/model"
 	"github.com/daveshanley/vacuum/parser"
-	"github.com/mitchellh/mapstructure"
+	validationErrors "github.com/pb33f/libopenapi-validator/errors"
+	highBase "github.com/pb33f/libopenapi/datamodel/high/base"
+	"github.com/pb33f/libopenapi/datamodel/low"
+	lowBase "github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/utils"
 	"gopkg.in/yaml.v3"
 )
@@ -37,36 +42,82 @@ func (sch Schema) RunRule(nodes []*yaml.Node, context model.RuleFunctionContext)
 
 	var results []model.RuleFunctionResult
 
-	var schema parser.Schema
+	var schema *highBase.Schema
 	var ok bool
 	s := utils.ExtractValueFromInterfaceMap("schema", context.Options)
-	if schema, ok = s.(parser.Schema); !ok {
-		var p parser.Schema
-		_ = mapstructure.Decode(s, &p)
-		schema = p
+	if schema, ok = s.(*highBase.Schema); !ok {
+
+		// build schema from scratch
+		var lowSchema lowBase.Schema
+
+		// unmarshal the schema
+		var on yaml.Node
+		err := on.Encode(&s)
+
+		if err != nil {
+			r := model.BuildFunctionResultString(fmt.Sprintf("unable to parse function options: %s", err.Error()))
+			r.Rule = context.Rule
+			results = append(results, r)
+			return results
+		}
+
+		// first, run the model builder on the schema
+		err = low.BuildModel(&on, &lowSchema)
+		if err != nil {
+			r := model.BuildFunctionResultString(fmt.Sprintf("unable to build low schema from function options: %s", err.Error()))
+			r.Rule = context.Rule
+			results = append(results, r)
+			return results
+		}
+
+		// now build out the low level schema.
+		err = lowSchema.Build(&on, context.Index)
+		if err != nil {
+			r := model.BuildFunctionResultString(fmt.Sprintf("unable to build high schema from function options: %s", err.Error()))
+			r.Rule = context.Rule
+			results = append(results, r)
+			return results
+		}
+
+		// now, build the high level schema
+		schema = highBase.NewSchema(&lowSchema)
+	}
+
+	// use the current node to validate (field not needed)
+	forceValidationOnCurrentNode := utils.ExtractValueFromInterfaceMap("forceValidationOnCurrentNode", context.Options)
+	if _, ok := forceValidationOnCurrentNode.(bool); ok && len(nodes) > 0 {
+		results = append(results, validateNodeAgainstSchema(schema, nodes[0], context, 0)...)
+		return results
 	}
 
 	for x, node := range nodes {
 		if x%2 == 0 && len(nodes) > 1 {
 			continue
 		}
-		// find field from rule
-		_, field := utils.FindKeyNode(context.RuleAction.Field, node.Content)
-		if field != nil {
 
+		// if the node is a document node, skip down one level
+		var no []*yaml.Node
+		if node.Kind == yaml.DocumentNode {
+			no = node.Content[0].Content
+		} else {
+			no = node.Content
+		}
+
+		_, field := utils.FindKeyNodeTop(context.RuleAction.Field, no)
+		if field != nil {
 			results = append(results, validateNodeAgainstSchema(schema, field, context, x)...)
 
 		} else {
 			// If the field is not found, and we're being strict, it's invalid.
 			forceValidation := utils.ExtractValueFromInterfaceMap("forceValidation", context.Options)
-			if _, ok := forceValidation.(bool); ok {
+			if _, ko := forceValidation.(bool); ko {
 
 				r := model.BuildFunctionResultString(fmt.Sprintf("%s: %s", context.Rule.Description,
 					fmt.Sprintf("`%s`, is missing and is required", context.RuleAction.Field)))
 				r.StartNode = node
 				r.EndNode = node.Content[len(node.Content)-1]
 				r.Rule = context.Rule
-				if p, ok := context.Given.(string); ok {
+				if p, df := context.Given.(string); df {
 					r.Path = fmt.Sprintf("%s[%d]", p, x)
 				}
 				results = append(results, r)
@@ -76,29 +127,51 @@ func (sch Schema) RunRule(nodes []*yaml.Node, context model.RuleFunctionContext)
 	return results
 }
 
-func validateNodeAgainstSchema(schema parser.Schema, field *yaml.Node,
+var bannedErrors = []string{"if-then failed", "if-else failed", "allOf failed", "oneOf failed"}
+
+func validateNodeAgainstSchema(schema *highBase.Schema, field *yaml.Node,
 	context model.RuleFunctionContext, x int) []model.RuleFunctionResult {
 
 	var results []model.RuleFunctionResult
 
 	// validate using schema provided.
-	res, _ := parser.ValidateNodeAgainstSchema(&schema, field, false)
+	res, resErrors := parser.ValidateNodeAgainstSchema(schema, field, false)
 
-	if res == nil {
+	if res {
 		return results
 	}
 
-	for _, resError := range res.Errors() {
+	var schemaErrors []*validationErrors.SchemaValidationFailure
+	for k := range resErrors {
+		schemaErrors = append(schemaErrors, resErrors[k].SchemaValidationErrors...)
+	}
+
+	for c := range schemaErrors {
 
 		r := model.BuildFunctionResultString(fmt.Sprintf("%s: %s", context.Rule.Description,
-			resError.Description()))
+			schemaErrors[c].Reason))
 		r.StartNode = field
 		r.EndNode = field
 		r.Rule = context.Rule
 		if p, ok := context.Given.(string); ok {
 			r.Path = fmt.Sprintf("%s[%d]", p, x)
 		}
-		results = append(results, r)
+		if p, ok := context.Given.([]string); ok {
+			r.Path = fmt.Sprintf("%s[%d]", p[0], x)
+		}
+
+		banned := false
+		for g := range bannedErrors {
+			if strings.Contains(schemaErrors[c].Reason, bannedErrors[g]) {
+				banned = true
+				continue
+			}
+		}
+
+		if !banned {
+			results = append(results, r)
+		}
+
 	}
 	return results
 }

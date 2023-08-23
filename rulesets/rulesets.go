@@ -8,77 +8,105 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/daveshanley/vacuum/model"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pb33f/libopenapi/utils"
-	"github.com/xeipuuv/gojsonschema"
+	"github.com/santhosh-tekuri/jsonschema/v5"
 	"go.uber.org/zap"
-	"strings"
 )
 
 //go:embed schemas/ruleset.schema.json
 var rulesetSchema string
 
 const (
-	style                             = "style"
-	validation                        = "validation"
-	noVerbsInPath                     = "no-http-verbs-in-path"
-	pathsKebabCase                    = "paths-kebab-case"
-	noAmbiguousPaths                  = "no-ambiguous-paths"
-	operationErrorResponse            = "operation-4xx-response"
-	operationSuccessResponse          = "operation-success-response"
-	operationOperationIdUnique        = "operation-operationId-unique"
-	operationOperationId              = "operation-operationId"
-	operationParameters               = "operation-parameters"
-	operationSingularTag              = "operation-singular-tag"
-	operationTagDefined               = "operation-tag-defined"
-	pathParamsRule                    = "path-params"
-	contactProperties                 = "contact-properties"
-	infoContact                       = "info-contact"
-	infoDescription                   = "info-description"
-	infoLicense                       = "info-license"
-	licenseUrl                        = "license-url"
-	openAPITagsAlphabetical           = "openapi-tags-alphabetical"
-	openAPITags                       = "openapi-tags"
-	operationTags                     = "operation-tags"
-	operationDescription              = "operation-description"
-	componentDescription              = "component-description"
-	operationOperationIdValidInUrl    = "operation-operationId-valid-in-url"
-	pathDeclarationsMustExist         = "path-declarations-must-exist"
-	pathKeysNoTrailingSlash           = "path-keys-no-trailing-slash"
-	pathNotIncludeQuery               = "path-not-include-query"
-	tagDescription                    = "tag-description"
-	noRefSiblings                     = "no-$ref-siblings"
-	oas3UnusedComponent               = "oas3-unused-component"
-	oas2UnusedDefinition              = "oas2-unused-definition"
-	oas2APIHost                       = "oas2-api-host"
-	oas2APISchemes                    = "oas2-api-schemes"
-	oas2Discriminator                 = "oas2-discriminator"
-	oas2HostNotExample                = "oas2-host-not-example"
-	oas3HostNotExample                = "oas3-host-not-example.com"
-	oas2HostTrailingSlash             = "oas2-host-trailing-slash"
-	oas3HostTrailingSlash             = "oas3-host-trailing-slash"
-	oas2ParameterDescription          = "oas2-parameter-description"
-	oas3ParameterDescription          = "oas3-parameter-description"
-	oas3OperationSecurityDefined      = "oas3-operation-security-defined"
-	oas2OperationSecurityDefined      = "oas2-operation-security-defined"
-	oas3ValidSchemaExample            = "oas3-valid-schema-example"
-	oas2ValidSchemaExample            = "oas2-valid-schema-example"
-	typedEnum                         = "typed-enum"
-	duplicatedEntryInEnum             = "duplicated-entry-in-enum"
-	noEvalInMarkdown                  = "no-eval-in-markdown"
-	noScriptTagsInMarkdown            = "no-script-tags-in-markdown"
-	descriptionDuplication            = "description-duplication"
-	oas3APIServers                    = "oas3-api-servers"
-	oas2OperationFormDataConsumeCheck = "oas2-operation-formData-consume-check"
-	oas2AnyOf                         = "oas2-anyOf"
-	oas2OneOf                         = "oas2-oneOf"
-	oas2Schema                        = "oas2-schema"
-	oas3Schema                        = "oas3-schema"
-	SpectralOpenAPI                   = "spectral:oas"
-	SpectralRecommended               = "recommended"
-	SpectralAll                       = "all"
-	SpectralOff                       = "off"
+	Style                                = "style"
+	Validation                           = "validation"
+	NoVerbsInPath                        = "no-http-verbs-in-path"
+	PathsKebabCase                       = "paths-kebab-case"
+	NoAmbiguousPathsRule                 = "no-ambiguous-paths"
+	OperationErrorResponse               = "operation-4xx-response"
+	OperationSuccessResponse             = "operation-success-response"
+	OperationOperationIdUnique           = "operation-operationId-unique"
+	OperationOperationId                 = "operation-operationId"
+	OperationParameters                  = "operation-parameters"
+	OperationSingularTag                 = "operation-singular-tag"
+	OperationTagDefined                  = "operation-tag-defined"
+	PathParamsRule                       = "path-params"
+	ContactProperties                    = "contact-properties"
+	InfoContact                          = "info-contact"
+	InfoDescription                      = "info-description"
+	InfoLicense                          = "info-license"
+	LicenseUrl                           = "license-url"
+	OpenAPITagsAlphabetical              = "openapi-tags-alphabetical"
+	OpenAPITags                          = "openapi-tags"
+	OperationTags                        = "operation-tags"
+	OperationDescription                 = "operation-description"
+	ComponentDescription                 = "component-description"
+	OperationOperationIdValidInUrl       = "operation-operationId-valid-in-url"
+	PathDeclarationsMustExist            = "path-declarations-must-exist"
+	PathKeysNoTrailingSlash              = "path-keys-no-trailing-slash"
+	PathNotIncludeQuery                  = "path-not-include-query"
+	TagDescription                       = "tag-description"
+	NoRefSiblings                        = "no-$ref-siblings"
+	Oas3UnusedComponent                  = "oas3-unused-component"
+	Oas2UnusedDefinition                 = "oas2-unused-definition"
+	Oas2APIHost                          = "oas2-api-host"
+	Oas2APISchemes                       = "oas2-api-schemes"
+	Oas2Discriminator                    = "oas2-discriminator"
+	Oas2HostNotExample                   = "oas2-host-not-example"
+	Oas3HostNotExample                   = "oas3-host-not-example.com"
+	Oas2HostTrailingSlash                = "oas2-host-trailing-slash"
+	Oas3HostTrailingSlash                = "oas3-host-trailing-slash"
+	Oas2ParameterDescription             = "oas2-parameter-description"
+	Oas3ParameterDescription             = "oas3-parameter-description"
+	Oas3OperationSecurityDefined         = "oas3-operation-security-defined"
+	Oas2OperationSecurityDefined         = "oas2-operation-security-defined"
+	Oas3ValidSchemaExample               = "oas3-valid-schema-example"
+	Oas2ValidSchemaExample               = "oas2-valid-schema-example"
+	TypedEnum                            = "typed-enum"
+	DuplicatedEntryInEnum                = "duplicated-entry-in-enum"
+	NoEvalInMarkdown                     = "no-eval-in-markdown"
+	NoScriptTagsInMarkdown               = "no-script-tags-in-markdown"
+	DescriptionDuplication               = "description-duplication"
+	Oas3APIServers                       = "oas3-api-servers"
+	Oas2OperationFormDataConsumeCheck    = "oas2-operation-formData-consume-check"
+	Oas2AnyOf                            = "oas2-anyOf"
+	Oas2OneOf                            = "oas2-oneOf"
+	Oas2Schema                           = "oas2-schema"
+	Oas3Schema                           = "oas3-schema"
+	OwaspNoNumericIDs                    = "owasp-no-numeric-ids"
+	OwaspNoHttpBasic                     = "owasp-no-http-basic"
+	OwaspNoAPIKeysInURL                  = "owasp-no-api-keys-in-url"
+	OwaspNoCredentialsInURL              = "owasp-no-credentials-in-url"
+	OwaspAuthInsecureSchemes             = "owasp-auth-insecure-schemes"
+	OwaspJWTBestPractices                = "owasp-jwt-best-practices"
+	OwaspProtectionGlobalUnsafe          = "owasp-protection-global-unsafe"
+	OwaspProtectionGlobalUnsafeStrict    = "owasp-protection-global-unsafe-strict"
+	OwaspProtectionGlobalSafe            = "owasp-protection-global-safe"
+	OwaspDefineErrorValidation           = "owasp-define-error-validation"
+	OwaspDefineErrorResponses401         = "owasp-define-error-responses-401"
+	OwaspDefineErrorResponses500         = "owasp-define-error-responses-500"
+	OwaspRateLimit                       = "owasp-rate-limit"
+	OwaspRateLimitRetryAfter             = "owasp-rate-limit-retry-after"
+	OwaspDefineErrorResponses429         = "owasp-define-error-responses-429"
+	OwaspArrayLimit                      = "owasp-array-limit"
+	OwaspStringLimit                     = "owasp-string-limit"
+	OwaspStringRestricted                = "owasp-string-restricted"
+	OwaspIntegerLimit                    = "owasp-integer-limit"
+	OwaspIntegerLimitLegacy              = "owasp-integer-limit-legacy"
+	OwaspIntegerFormat                   = "owasp-integer-format"
+	OwaspNoAdditionalProperties          = "owasp-no-additionalProperties"
+	OwaspConstrainedAdditionalProperties = "owasp-constrained-additionalProperties"
+	OwaspSecurityHostsHttpsOAS2          = "owasp-security-hosts-https-oas2"
+	OwaspSecurityHostsHttpsOAS3          = "owasp-security-hosts-https-oas3"
+	SpectralOpenAPI                      = "spectral:oas"
+	SpectralOwasp                        = "spectral:owasp"
+	VacuumOwasp                          = "vacuum:owasp"
+	SpectralRecommended                  = "recommended"
+	SpectralAll                          = "all"
+	SpectralOff                          = "off"
 )
 
 var log *zap.Logger
@@ -111,7 +139,7 @@ func BuildDefaultRuleSets() RuleSets {
 	log = zap.NewExample()
 
 	rulesetsSingleton = &ruleSetsModel{
-		openAPIRuleSet: generateDefaultOpenAPIRuleSet(),
+		openAPIRuleSet: GenerateDefaultOpenAPIRuleSet(),
 	}
 	return rulesetsSingleton
 }
@@ -178,6 +206,20 @@ func (rsm ruleSetsModel) GenerateRuleSetFromSuppliedRuleSet(ruleset *RuleSet) *R
 		rs.Rules = make(map[string]*model.Rule)
 	}
 
+	// owasp rules with spectral and vacuum namespace
+	if extends[SpectralOwasp] == SpectralAll || extends[VacuumOwasp] == SpectralAll {
+		for ruleName, rule := range GetAllOWASPRules() {
+			rs.Rules[ruleName] = rule
+		}
+	}
+
+	// owasp rules with spectral and vacuum namespace (recommended)
+	if extends[SpectralOwasp] == SpectralRecommended || extends[VacuumOwasp] == SpectralRecommended {
+		for ruleName, rule := range GetRecommendedOWASPRules() {
+			rs.Rules[ruleName] = rule
+		}
+	}
+
 	// add definitions.
 	rs.RuleDefinitions = ruleset.RuleDefinitions
 
@@ -206,6 +248,7 @@ func (rsm ruleSetsModel) GenerateRuleSetFromSuppliedRuleSet(ruleset *RuleSet) *R
 		}
 
 		// let's try to cast to a bool, this means we want to enable a rule.
+		// otherwise it means delete it
 		if eval, ok := v.(bool); ok {
 			if eval {
 				if rsm.openAPIRuleSet.Rules[k] == nil {
@@ -213,6 +256,8 @@ func (rsm ruleSetsModel) GenerateRuleSetFromSuppliedRuleSet(ruleset *RuleSet) *R
 					continue
 				}
 				rs.Rules[k] = rsm.openAPIRuleSet.Rules[k]
+			} else {
+				delete(rs.Rules, k) // remove it completely
 			}
 		}
 
@@ -242,77 +287,137 @@ func (rsm ruleSetsModel) GenerateRuleSetFromSuppliedRuleSet(ruleset *RuleSet) *R
 					nr.RuleCategory = model.RuleCategories[rc.Id]
 				}
 			}
+
+			// default new rule to be resolved if not supplied.
+			if newRule["resolved"] == nil {
+				nr.Resolved = true
+			}
+
 			rs.Rules[k] = &nr
 		}
 	}
 	return rs
 }
 
-func generateDefaultOpenAPIRuleSet() *RuleSet {
+// CreateRuleSetFromRuleMap creates a RuleSet from a map of rules. Built-in rules can can be exposed by using
+// the GetAllBuiltInRules() function.
+func CreateRuleSetFromRuleMap(rules map[string]*model.Rule) *RuleSet {
+	rs := &RuleSet{
+		DocumentationURI: "https://quobix.com/vacuum/rulesets/understanding",
+		Formats:          []string{"oas2", "oas3"},
+		Extends:          map[string]string{SpectralOpenAPI: SpectralOff},
+		Description:      fmt.Sprintf("a custom ruleset composed of %d rules", len(rules)),
+		RuleDefinitions:  make(map[string]interface{}),
+		Rules:            rules,
+	}
+	return rs
+}
 
+// GetAllBuiltInRules returns a map of all the built-in rules available, ready to be used in a RuleSet.
+func GetAllBuiltInRules() map[string]*model.Rule {
 	rules := make(map[string]*model.Rule)
-	rules[operationSuccessResponse] = GetOperationSuccessResponseRule()
-	rules[operationOperationIdUnique] = GetOperationIdUniqueRule()
-	rules[operationOperationId] = GetOperationIdRule()
-	rules[operationParameters] = GetOperationParametersRule()
-	rules[operationSingularTag] = GetOperationSingleTagRule()
-	rules[operationTagDefined] = GetGlobalOperationTagsRule()
-	rules[pathParamsRule] = GetPathParamsRule()
-	rules[contactProperties] = GetContactPropertiesRule()
-	rules[infoContact] = GetInfoContactRule()
-	rules[infoDescription] = GetInfoDescriptionRule()
-	rules[infoLicense] = GetInfoLicenseRule()
-	rules[licenseUrl] = GetInfoLicenseUrlRule()
-	rules[openAPITagsAlphabetical] = GetOpenApiTagsAlphabeticalRule()
-	rules[openAPITags] = GetOpenApiTagsRule()
-	rules[operationTags] = GetOperationTagsRule()
-	rules[operationDescription] = GetOperationDescriptionRule()
-	rules[componentDescription] = GetComponentDescriptionsRule()
-	rules[operationOperationIdValidInUrl] = GetOperationIdValidInUrlRule()
-	rules[pathDeclarationsMustExist] = GetPathDeclarationsMustExistRule()
-	rules[pathKeysNoTrailingSlash] = GetPathNoTrailingSlashRule()
-	rules[pathNotIncludeQuery] = GetPathNotIncludeQueryRule()
-	rules[tagDescription] = GetTagDescriptionRequiredRule()
-	rules[noRefSiblings] = GetNoRefSiblingsRule()
-	rules[oas3UnusedComponent] = GetOAS3UnusedComponentRule()
-	rules[oas2UnusedDefinition] = GetOAS2UnusedComponentRule()
-	rules[oas2APIHost] = GetOAS2APIHostRule()
-	rules[oas2APISchemes] = GetOAS2APISchemesRule()
-	rules[oas2Discriminator] = GetOAS2DiscriminatorRule()
-	rules[oas2HostNotExample] = GetOAS2HostNotExampleRule()
-	rules[oas3HostNotExample] = GetOAS3HostNotExampleRule()
-	rules[oas2HostTrailingSlash] = GetOAS2HostTrailingSlashRule()
-	rules[oas3HostTrailingSlash] = GetOAS3HostTrailingSlashRule()
-	rules[oas2ParameterDescription] = GetOAS2ParameterDescriptionRule()
-	rules[oas3ParameterDescription] = GetOAS3ParameterDescriptionRule()
-	rules[oas3OperationSecurityDefined] = GetOAS3SecurityDefinedRule()
-	rules[oas2OperationSecurityDefined] = GetOAS2SecurityDefinedRule()
-	rules[typedEnum] = GetTypedEnumRule()
-	rules[duplicatedEntryInEnum] = GetDuplicatedEntryInEnumRule()
-	rules[noEvalInMarkdown] = GetNoEvalInMarkdownRule()
-	rules[noScriptTagsInMarkdown] = GetNoScriptTagsInMarkdownRule()
-	rules[descriptionDuplication] = GetDescriptionDuplicationRule()
-	rules[oas3APIServers] = GetAPIServersRule()
-	rules[oas2OperationFormDataConsumeCheck] = GetOAS2FormDataConsumesRule()
-	rules[oas2AnyOf] = GetOAS2PolymorphicAnyOfRule()
-	rules[oas2OneOf] = GetOAS2PolymorphicOneOfRule()
-	rules[oas3ValidSchemaExample] = GetOAS3ExamplesRule()
-	rules[oas2ValidSchemaExample] = GetOAS2ExamplesRule()
-	rules[noAmbiguousPaths] = NoAmbiguousPaths()
-	rules[noVerbsInPath] = GetNoVerbsInPathRule()
-	rules[pathsKebabCase] = GetPathsKebabCaseRule()
-	rules[operationErrorResponse] = GetOperationErrorResponseRule()
-	rules[oas2Schema] = GetOAS2SchemaRule()
-	rules[oas3Schema] = GetOAS3SchemaRule()
+	rules[OperationSuccessResponse] = GetOperationSuccessResponseRule()
+	rules[OperationOperationIdUnique] = GetOperationIdUniqueRule()
+	rules[OperationOperationId] = GetOperationIdRule()
+	rules[OperationParameters] = GetOperationParametersRule()
+	rules[OperationSingularTag] = GetOperationSingleTagRule()
+	rules[OperationTagDefined] = GetGlobalOperationTagsRule()
+	rules[PathParamsRule] = GetPathParamsRule()
+	rules[ContactProperties] = GetContactPropertiesRule()
+	rules[InfoContact] = GetInfoContactRule()
+	rules[InfoDescription] = GetInfoDescriptionRule()
+	rules[InfoLicense] = GetInfoLicenseRule()
+	rules[LicenseUrl] = GetInfoLicenseUrlRule()
+	rules[OpenAPITagsAlphabetical] = GetOpenApiTagsAlphabeticalRule()
+	rules[OpenAPITags] = GetOpenApiTagsRule()
+	rules[OperationTags] = GetOperationTagsRule()
+	rules[OperationDescription] = GetOperationDescriptionRule()
+	rules[ComponentDescription] = GetComponentDescriptionsRule()
+	rules[OperationOperationIdValidInUrl] = GetOperationIdValidInUrlRule()
+	rules[PathDeclarationsMustExist] = GetPathDeclarationsMustExistRule()
+	rules[PathKeysNoTrailingSlash] = GetPathNoTrailingSlashRule()
+	rules[PathNotIncludeQuery] = GetPathNotIncludeQueryRule()
+	rules[TagDescription] = GetTagDescriptionRequiredRule()
+	rules[NoRefSiblings] = GetNoRefSiblingsRule()
+	rules[Oas3UnusedComponent] = GetOAS3UnusedComponentRule()
+	rules[Oas2UnusedDefinition] = GetOAS2UnusedComponentRule()
+	rules[Oas2APIHost] = GetOAS2APIHostRule()
+	rules[Oas2APISchemes] = GetOAS2APISchemesRule()
+	rules[Oas2Discriminator] = GetOAS2DiscriminatorRule()
+	rules[Oas2HostNotExample] = GetOAS2HostNotExampleRule()
+	rules[Oas3HostNotExample] = GetOAS3HostNotExampleRule()
+	rules[Oas2HostTrailingSlash] = GetOAS2HostTrailingSlashRule()
+	rules[Oas3HostTrailingSlash] = GetOAS3HostTrailingSlashRule()
+	rules[Oas2ParameterDescription] = GetOAS2ParameterDescriptionRule()
+	rules[Oas3ParameterDescription] = GetOAS3ParameterDescriptionRule()
+	rules[Oas3OperationSecurityDefined] = GetOAS3SecurityDefinedRule()
+	rules[Oas2OperationSecurityDefined] = GetOAS2SecurityDefinedRule()
+	rules[TypedEnum] = GetTypedEnumRule()
+	rules[DuplicatedEntryInEnum] = GetDuplicatedEntryInEnumRule()
+	rules[NoEvalInMarkdown] = GetNoEvalInMarkdownRule()
+	rules[NoScriptTagsInMarkdown] = GetNoScriptTagsInMarkdownRule()
+	rules[DescriptionDuplication] = GetDescriptionDuplicationRule()
+	rules[Oas3APIServers] = GetAPIServersRule()
+	rules[Oas2OperationFormDataConsumeCheck] = GetOAS2FormDataConsumesRule()
+	rules[Oas2AnyOf] = GetOAS2PolymorphicAnyOfRule()
+	rules[Oas2OneOf] = GetOAS2PolymorphicOneOfRule()
+	rules[Oas3ValidSchemaExample] = GetOAS3ExamplesRule()
+	rules[Oas2ValidSchemaExample] = GetOAS2ExamplesRule()
+	rules[NoAmbiguousPathsRule] = NoAmbiguousPaths()
+	rules[NoVerbsInPath] = GetNoVerbsInPathRule()
+	rules[PathsKebabCase] = GetPathsKebabCaseRule()
+	rules[OperationErrorResponse] = GetOperationErrorResponseRule()
+	rules[Oas2Schema] = GetOAS2SchemaRule()
+	rules[Oas3Schema] = GetOAS3SchemaRule()
 
+	return rules
+}
+
+// GetAllOWASPRules returns a map of all the OWASP rules available, ready to be used in a RuleSet.
+func GetAllOWASPRules() map[string]*model.Rule {
+	rules := make(map[string]*model.Rule)
+
+	rules[OwaspNoNumericIDs] = GetOWASPNoNumericIDsRule()
+	rules[OwaspNoHttpBasic] = GetOWASPNoHttpBasicRule()
+	rules[OwaspNoAPIKeysInURL] = GetOWASPNoAPIKeysInURLRule()
+	rules[OwaspNoCredentialsInURL] = GetOWASPNoCredentialsInURLRule()
+	rules[OwaspAuthInsecureSchemes] = GetOWASPAuthInsecureSchemesRule()
+	rules[OwaspJWTBestPractices] = GetOWASPJWTBestPracticesRule()
+	rules[OwaspProtectionGlobalUnsafe] = GetOWASPProtectionGlobalUnsafeRule()
+	rules[OwaspProtectionGlobalUnsafeStrict] = GetOWASPProtectionGlobalUnsafeStrictRule()
+	rules[OwaspProtectionGlobalSafe] = GetOWASPProtectionGlobalSafeRule()
+	rules[OwaspDefineErrorValidation] = GetOWASPDefineErrorValidationRule()
+	rules[OwaspDefineErrorResponses401] = GetOWASPDefineErrorResponses401Rule()
+	rules[OwaspDefineErrorResponses500] = GetOWASPDefineErrorResponses500Rule()
+	rules[OwaspRateLimit] = GetOWASPRateLimitRule()
+	rules[OwaspRateLimitRetryAfter] = GetOWASPRateLimitRetryAfterRule()
+	rules[OwaspDefineErrorResponses429] = GetOWASPDefineErrorResponses429Rule()
+	rules[OwaspArrayLimit] = GetOWASPArrayLimitRule()
+	rules[OwaspStringLimit] = GetOWASPStringLimitRule()
+	rules[OwaspStringRestricted] = GetOWASPStringRestrictedRule()
+	rules[OwaspIntegerLimit] = GetOWASPIntegerLimitRule()
+	rules[OwaspIntegerLimitLegacy] = GetOWASPIntegerLimitLegacyRule()
+	rules[OwaspIntegerFormat] = GetOWASPIntegerFormatRule()
+	rules[OwaspNoAdditionalProperties] = GetOWASPNoAdditionalPropertiesRule()
+	rules[OwaspConstrainedAdditionalProperties] = GetOWASPConstrainedAdditionalPropertiesRule()
+	rules[OwaspSecurityHostsHttpsOAS2] = GetOWASPSecurityHostsHttpsOAS2Rule()
+	rules[OwaspSecurityHostsHttpsOAS3] = GetOWASPSecurityHostsHttpsOAS3Rule()
+	return rules
+}
+
+// GetRecommendedOWASPRules returns a map of all the OWASP rules available, ready to be used in a RuleSet.
+func GetRecommendedOWASPRules() map[string]*model.Rule {
+	return GetAllOWASPRules() // change if we need to customize this in the future.
+}
+
+// GenerateDefaultOpenAPIRuleSet generates a default ruleset for OpenAPI. All the built-in rules, ready to go.
+func GenerateDefaultOpenAPIRuleSet() *RuleSet {
 	set := &RuleSet{
 		DocumentationURI: "https://quobix.com/vacuum/rulesets/all",
-		Rules:            rules,
+		Rules:            GetAllBuiltInRules(),
 		Description:      "Every single rule that is built-in to vacuum. The full monty",
 	}
-
 	return set
-
 }
 
 // RuleSet represents a collection of Rule definitions.
@@ -324,7 +429,6 @@ type RuleSet struct {
 	Rules            map[string]*model.Rule `json:"-" yaml:"-"`
 	Extends          interface{}            `json:"extends,omitempty" yaml:"extends,omitempty"` // can be string or tuple (again... why stoplight?)
 	extendsMeta      map[string]string
-	schemaLoader     gojsonschema.JSONLoader
 }
 
 // GetExtendsValue returns an array of maps defining which ruleset this one extends. The value can be
@@ -363,27 +467,33 @@ func CreateRuleSetUsingJSON(jsonData []byte) (*RuleSet, error) {
 		return nil, errors.New("data is not JSON")
 	}
 
-	jsonLoader := gojsonschema.NewStringLoader(jsonString)
-	schemaLoader := LoadRulesetSchema()
+	compiler := jsonschema.NewCompiler()
+	_ = compiler.AddResource("schema.json", strings.NewReader(rulesetSchema))
+	jsch, _ := compiler.Compile("schema.json")
 
-	// check blob is a valid contract, before creating ruleset.
-	res, uErr := gojsonschema.Validate(schemaLoader, jsonLoader)
-	if uErr != nil {
-		return nil, uErr
-	}
+	var data map[string]interface{}
+	_ = json.Unmarshal(jsonData, &data)
 
-	if !res.Valid() {
+	// 4. validate the object against the schema
+	scErrs := jsch.Validate(data)
+
+	if scErrs != nil {
+		jk := scErrs.(*jsonschema.ValidationError)
 		var buf strings.Builder
-		for _, e := range res.Errors() {
-			buf.WriteString(fmt.Sprintf("%s (line),", e.Description()))
+		// flatten the validationErrors
+		schFlatErrs := jk.BasicOutput().Errors
+		for q := range schFlatErrs {
+			buf.WriteString(schFlatErrs[q].Error)
+			if q+1 < len(schFlatErrs) {
+				buf.WriteString(", ")
+			}
 		}
-
 		return nil, fmt.Errorf("rules not valid: %s", buf.String())
 	}
 
 	// unmarshal JSON into new RuleSet
 	rs := &RuleSet{}
-	uErr = json.Unmarshal(jsonData, rs)
+	uErr := json.Unmarshal(jsonData, rs)
 	if uErr != nil {
 		return nil, uErr
 	}
@@ -398,21 +508,15 @@ func CreateRuleSetUsingJSON(jsonData []byte) (*RuleSet, error) {
 				return nil, dErr
 			}
 			rs.Rules[k] = &rule
+			rule.Resolved = true // default resolved.
 		}
 
 		if b, ok := v.(model.Rule); ok {
 			rs.Rules[k] = &b
+			b.Resolved = true // default resolved
 		}
 	}
-
-	// save our loaded schema for later.
-	rs.schemaLoader = schemaLoader
 	return rs, nil
-}
-
-// LoadRulesetSchema creates a new JSON Schema loader for the RuleSet schema.
-func LoadRulesetSchema() gojsonschema.JSONLoader {
-	return gojsonschema.NewStringLoader(rulesetSchema)
 }
 
 // CreateRuleSetFromData will create a new RuleSet instance from either a JSON or YAML input

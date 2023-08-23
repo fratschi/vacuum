@@ -107,7 +107,7 @@ func (l Length) RunRule(nodes []*yaml.Node, context model.RuleFunctionContext) [
 			if utils.IsNodeFloatValue(p) {
 				fValue, _ := strconv.ParseFloat(p.Value, 64)
 				if float64(min) > 0 && fValue < float64(min) {
-					res := createMinError(p.Value, min)
+					res := createMinError(context.Rule.Description, p.Value, min)
 					res.StartNode = node
 					res.EndNode = node
 					res.Path = pathValue
@@ -116,7 +116,7 @@ func (l Length) RunRule(nodes []*yaml.Node, context model.RuleFunctionContext) [
 					continue
 				}
 				if float64(max) > 0 && fValue > float64(max) {
-					res := createMaxError(p.Value, max)
+					res := createMaxError(context.Rule.Description, p.Value, max)
 					res.StartNode = node
 					res.EndNode = node
 					res.Path = pathValue
@@ -127,7 +127,7 @@ func (l Length) RunRule(nodes []*yaml.Node, context model.RuleFunctionContext) [
 			}
 
 			if min > 0 && valueCheck < min {
-				res := createMinError(p.Value, min)
+				res := createMinError(context.Rule.Description, p.Value, min)
 				res.StartNode = node
 				res.EndNode = node
 				res.Path = pathValue
@@ -136,7 +136,7 @@ func (l Length) RunRule(nodes []*yaml.Node, context model.RuleFunctionContext) [
 				continue
 			}
 			if max > 0 && valueCheck > max {
-				res := createMaxError(p.Value, max)
+				res := createMaxError(context.Rule.Description, p.Value, max)
 				res.StartNode = node
 				res.EndNode = node
 				res.Path = pathValue
@@ -165,7 +165,7 @@ func (l Length) RunRule(nodes []*yaml.Node, context model.RuleFunctionContext) [
 				} else {
 					fv = context.Rule.Given.(string)
 				}
-				res := createMinError(fv, min)
+				res := createMinError(context.Rule.Description, fv, min)
 				res.StartNode = node
 				res.EndNode = node
 				res.Path = pathValue
@@ -182,7 +182,7 @@ func (l Length) RunRule(nodes []*yaml.Node, context model.RuleFunctionContext) [
 				} else {
 					fv = context.Rule.Given.(string)
 				}
-				res := createMaxError(fv, max)
+				res := createMaxError(context.Rule.Description, fv, max)
 				res.StartNode = node
 				res.EndNode = node
 				res.Path = pathValue
@@ -198,10 +198,10 @@ func (l Length) RunRule(nodes []*yaml.Node, context model.RuleFunctionContext) [
 	return results
 }
 
-func createMaxError(field string, max int) model.RuleFunctionResult {
-	return model.BuildFunctionResult(field, "must not be longer/greater than", max)
+func createMaxError(desc, field string, max int) model.RuleFunctionResult {
+	return model.BuildFunctionResultWithDescription(desc, field, "must not be longer/greater than", max)
 }
 
-func createMinError(field string, min int) model.RuleFunctionResult {
-	return model.BuildFunctionResult(field, "must be longer/greater than", min)
+func createMinError(desc, field string, min int) model.RuleFunctionResult {
+	return model.BuildFunctionResultWithDescription(desc, field, "must be longer/greater than", min)
 }

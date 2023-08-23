@@ -74,15 +74,14 @@ func (x Xor) RunRule(nodes []*yaml.Node, context model.RuleFunctionContext) []mo
 
 		if seenCount != 1 {
 			results = append(results, model.RuleFunctionResult{
-				Message: fmt.Sprintf("'%s' and '%s' must not be both defined or undefined",
-					properties[0], properties[1]),
+				Message: fmt.Sprintf("%s: '%s' and '%s' must not be both defined or undefined",
+					context.Rule.Description, properties[0], properties[1]),
 				StartNode: node,
 				EndNode:   node,
 				Path:      pathValue,
 				Rule:      context.Rule,
 			})
 		}
-
 	}
 
 	return results

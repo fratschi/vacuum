@@ -37,7 +37,7 @@ func (oId OperationId) RunRule(nodes []*yaml.Node, context model.RuleFunctionCon
 		for method, methodNode := range methodMap {
 
 			_, operationId := utils.FindKeyNode("operationId", methodNode.Node.Content)
-			lastNode := utils.FindLastChildNode(methodNode.Node)
+			lastNode := utils.FindLastChildNodeWithLevel(methodNode.Node, 0)
 
 			if operationId == nil {
 				results = append(results, model.RuleFunctionResult{

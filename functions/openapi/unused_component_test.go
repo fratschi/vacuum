@@ -56,7 +56,8 @@ components:
 
 	rule := buildOpenApiTestRuleAction(path, "unused_component", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 
 	def := UnusedComponent{}
 	res := def.RunRule(nodes, ctx)
@@ -94,9 +95,11 @@ paths:
 
 	rule := buildOpenApiTestRuleAction(path, "unused_component", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	info, _ := datamodel.ExtractSpecInfo([]byte(yml))
 	ctx.SpecInfo = info
+	ctx.Rule = &rule
 
 	def := UnusedComponent{}
 	res := def.RunRule(nodes, ctx)
@@ -125,7 +128,8 @@ components:
 
 	rule := buildOpenApiTestRuleAction(path, "unused_component", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 	info, _ := datamodel.ExtractSpecInfo([]byte(yml))
 	ctx.SpecInfo = info
 
@@ -172,12 +176,13 @@ components:
 
 	rule := buildOpenApiTestRuleAction(path, "unused_component", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 
 	def := UnusedComponent{}
 	res := def.RunRule(nodes, ctx)
 
-	assert.Len(t, res, 2)
+	assert.Len(t, res, 4)
 }
 
 func TestUnusedComponent_RunRule_Success_Fail_Four_Undefined(t *testing.T) {
@@ -228,7 +233,8 @@ components:
 
 	rule := buildOpenApiTestRuleAction(path, "unused_component", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 
 	def := UnusedComponent{}
 	res := def.RunRule(nodes, ctx)
@@ -285,7 +291,8 @@ components:
 
 	rule := buildOpenApiTestRuleAction(path, "unused_component", "", nil)
 	ctx := buildOpenApiTestContext(model.CastToRuleAction(rule.Then), nil)
-	ctx.Index = index.NewSpecIndex(&rootNode)
+	config := index.CreateOpenAPIIndexConfig()
+	ctx.Index = index.NewSpecIndexWithConfig(&rootNode, config)
 
 	def := UnusedComponent{}
 	res := def.RunRule(nodes, ctx)
